@@ -83,19 +83,26 @@
             <th>IP Address</th>
             <th>Provider</th>
             <th>Provider Range</th>
+            <th>ASN</th>
+            <th>AS Prefix</th>
+            <th>AS Holder</th>
         </tr>
         </thead>
         <tbody>
         {% if hosting_table is defined %}
-            {% for hostname, value in hosting_table.items() %}
-                {% for ipaddress, proviers in value.items() %}
-                    {% if proviers|length > 0 %}
-                        {% for provier in proviers %}
+            {% for hostname, host_ips in hosting_table.items() %}
+                {% for ipaddress, ipaddress_details in host_ips.items() %}
+                    {% if ipaddress_details["cloud_providers"]|length > 0 %}
+                        {% for provider in ipaddress_details["cloud_providers"] %}
                             <tr>
                                 <td> {{ hostname }} </td>
                                 <td> {{ ipaddress }} </td>
-                                <td> {{ provier[0] }} </td>
-                                <td> {{ provier[1] }} </td>
+                                <td> {{ provider[0] }} </td>
+                                <td> {{ provider[1] }} </td>
+                                <td> {{ ipaddress_details["as"]["asn"] }} </td>
+                                <td> {{ ipaddress_details["as"]["prefix"] }} </td>
+                                <td> {{ ipaddress_details["as"]["holder"] }} </td>
+
                             </tr>
                         {% endfor %}
 
@@ -105,6 +112,9 @@
                             <td> {{ ipaddress }} </td>
                             <td></td>
                             <td></td>
+                            <td> {{ ipaddress_details["as"]["asn"] }} </td>
+                            <td> {{ ipaddress_details["as"]["prefix"] }} </td>
+                            <td> {{ ipaddress_details["as"]["holder"] }} </td>
                         </tr>
                     {% endif %}
                 {% endfor %}

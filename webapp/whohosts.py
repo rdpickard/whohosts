@@ -5,6 +5,7 @@ import flask
 from flask import Flask, request, jsonify
 import netaddr
 import dns.resolver
+import requests
 
 app = Flask(__name__)
 
@@ -134,12 +135,16 @@ def lookup(lookup_target_list):
         if ips is not None:
             for ip in ips:
                 ipaddress = netaddr.IPAddress(ip)
-                hosting_table[hostname][ip] = []
+                hosting_table[hostname][ip] = dict()
 
+                asn, prefix, holder = asn_info_for_ip(ip)
+                hosting_table[hostname][ip]["as"] = {"asn": asn, "prefix": prefix, "holder": holder}
+
+                hosting_table[hostname][ip]["cloud_providers"] = []
                 for provider, provider_ipnetworks in cloud_providers_ip_networks.items():
                     for provider_ipnetwork in provider_ipnetworks:
                         if ipaddress in provider_ipnetwork:
-                            hosting_table[hostname][ip].append((provider, str(provider_ipnetwork)))
+                            hosting_table[hostname][ip]["cloud_providers"].append((provider, str(provider_ipnetwork)))
 
     if return_json:
         return hosting_table
@@ -205,6 +210,38 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
 
     return ip_v4_addresses + ip_v6_addresses
 
+
+def asn_info_for_ip(ipaddress):
+
+    ans_info = dict()
+
+    ripe_atlas_ni_url = f"https://stat.ripe.net/data/network-info/data.json?resource={ipaddress}"
+    ripe_atlas_ni_response = requests.get(ripe_atlas_ni_url)
+    if ripe_atlas_ni_response.status_code != 200:
+        raise WhoHostsException(f"Could not look up network info for IP '{ipaddress}' from RIPE ATLAS URL '{ripe_atlas_ni_url}'. Request returned status {ripe_atlas_ni_response.status_code}, expected 200. Bailing")
+
+    if len(ripe_atlas_ni_response.json()["data"]["asns"]) == 0:
+        return None, None, None
+    if len(ripe_atlas_ni_response.json()["data"]["asns"]) > 1:
+        raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned more than one ASN for IP '{ipaddress}'. ANSs -> {','.join(ripe_atlas_ni_response.json()['data']['asns'])}. Expected only one ASN. Bailing")
+    if len(ripe_atlas_ni_response.json()["data"]["prefix"]) == 0:
+        raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned no prefix in ASN {ripe_atlas_ni_response.json()['data']['asns'][0]} for IP '{ipaddress}'. Expected only one ASN. Bailing")
+    try:
+        netaddr.IPNetwork(ripe_atlas_ni_response.json()["data"]["prefix"])
+    except netaddr.core.AddrFormatError:
+        raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned prefix {ripe_atlas_ni_response.json()['data']['prefix']} in ASN {ripe_atlas_ni_response.json()['data']['asns'][0]} for IP '{ipaddress}' that doens't look like a IP network. Bailing")
+
+    asn = ripe_atlas_ni_response.json()["data"]["asns"][0]
+    prefix = ripe_atlas_ni_response.json()["data"]["prefix"]
+
+    ripe_atlas_as_url = f"https://stat.ripe.net/data/as-overview/data.json?resource={asn}"
+    ripe_atlas_as_response = requests.get(ripe_atlas_as_url)
+    if ripe_atlas_as_response.status_code != 200:
+        raise WhoHostsException(f"Could not look up as overview info for ASN '{asn}' from RIPE ATLAS URL '{ripe_atlas_as_url}'. Request returned status {ripe_atlas_as_response.status_code}, expected 200. Bailing")
+
+    holder = ripe_atlas_as_response.json()["data"]["holder"]
+
+    return asn, prefix, holder
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5050)
