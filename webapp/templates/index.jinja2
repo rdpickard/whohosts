@@ -1,0 +1,178 @@
+<!doctype html>
+<head>
+    <title>WhoHosts</title>
+    <link href="css/semantic.min.css" rel="stylesheet">
+    <script src="js/jquery-3.4.1.min.js"></script>
+    <script src="js/semantic.min.js"></script>
+</head>
+
+<body>
+
+<div class="ui container">
+
+    <br>
+    <br>
+
+    {% if error_message is defined and error_message is not none or error_message == "" %}
+        <div class="ui negative message">
+            <i class="close icon"></i>
+            <div class="header">
+                {{ error_message }}
+            </div>
+            {% if more_info_message is defined and more_info_message is not none %}
+                <p>{{ more_info_message }}</p>
+            {% endif %}
+        </div>
+    {% else %}
+    {% endif %}
+
+    <h1 class="ui header">Who Hosts</h1>
+
+    <div class="content">
+        Look up tool to see if a site is hosted on a public cloud provider by seeing if the DNS records for a host name
+        resolve to an IP space know to belong to a cloud provider. Results can also be returned as JSON, see <a
+            href="#json_section"> here</a>.
+    </div>
+
+    <br>
+
+
+    <div class=" ui big fluid action input">
+        <input type="text" style="color: green" placeholder="Space seperated list of hostnames"
+               id="whohosts_hostnames"/>
+        <button class="ui button green" id="whohosts_button">Who hosts</button>
+    </div>
+    <div class="ui accordion">
+        <div class=" title">
+            <i class="dropdown icon"></i>
+            More settings
+        </div>
+        <div class=" content">
+            <div class="ui labeled input fluid">
+                <div class="ui label">
+                    DNS Server IPs
+                </div>
+                <input type="text" placeholder="(use default)">
+            </div>
+            <br>
+            <div class="ui form">
+                <div class="inline fields">
+                    <label>Records types</label>
+                        <div class="field">
+                            <div class="ui checkbox">
+                                <input type="checkbox" name="frequency" checked="checked">
+                                    <label>A</label>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <div class="ui checkbox">
+                                <input type="checkbox" name="frequency" checked="checked">
+                                    <label>AAAA</label>
+                            </div>
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <table class="ui celled padded table">
+
+        <thead>
+        <tr>
+            <th class="single line">Hostname</th>
+            <th>IP Address</th>
+            <th>Provider</th>
+            <th>Provider Range</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% if hosting_table is defined %}
+            {% for hostname, value in hosting_table.items() %}
+                {% for ipaddress, proviers in value.items() %}
+                    {% if proviers|length > 0 %}
+                        {% for provier in proviers %}
+                            <tr>
+                                <td> {{ hostname }} </td>
+                                <td> {{ ipaddress }} </td>
+                                <td> {{ provier[0] }} </td>
+                                <td> {{ provier[1] }} </td>
+                            </tr>
+                        {% endfor %}
+
+                    {% else %}
+                        <tr>
+                            <td> {{ hostname }} </td>
+                            <td> {{ ipaddress }} </td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        {% endif %}
+        </tbody>
+    </table>
+
+    <h4 class="ui horizontal divider header" id="json_section">
+        JSON
+    </h4>
+    <div class="content">
+        Results can also be fetched as JSON. Example:<br><br>
+
+        <p style="font-family: monospace; font-weight: lighter" id="curl-example">
+        </p>
+    </div>
+
+    <h4 class="ui horizontal divider header" id="json_section">
+        Providers
+    </h4>
+    <div class="content">
+        List of currently checked cloud providers <br>
+        <div class="ui bulleted list">
+            {% if providers_table is defined %}
+                {% for provider_name, provider_info in providers_table.items() %}
+                    <div class="item"><a href="/provider/{{ provider_name }}">{{ provider_name }}</a>
+                        - {{ provider_info }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+    </div>
+
+    <br>
+    <br>
+    <br>
+</div>
+
+<script>
+    $('.ui.accordion').accordion();
+
+    $(document).ready(function () {
+        $("#curl-example").text("curl -H 'Content-Type: application/json' " + window.location.href)
+        lookup_targets = window.location.pathname.replace("/", "").split(",")
+        $('#whohosts_hostnames').val(lookup_targets.join(" "))
+    });
+
+    $('#whohosts_hostnames').keypress(function (e) {
+        var key = e.which;
+        if (key == 13) {
+            $('#whohosts_button').click();
+            return false;
+        }
+    });
+
+    $("#whohosts_button").click(function () {
+        lookup_targets = $("#whohosts_hostnames").val().trim().replace(/\s\s+/g, ' ').replace(/\t/g, ' ').split(" ")
+        window.location = window.location.protocol + "//" + window.location.host + "/" + lookup_targets.join(",");
+    });
+
+</script>
+</body>
+
