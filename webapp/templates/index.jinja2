@@ -48,28 +48,37 @@
             More settings
         </div>
         <div class=" content">
-            <div class="ui labeled input fluid">
-                <div class="ui label">
-                    DNS Server IPs
+
+            <div class="field">
+                <div class="ui labeled input fluid">
+                    <div class="ui label">
+                        DNS Server IPs
+                    </div>
+                    <input type="text" placeholder="(use default)">
                 </div>
-                <input type="text" placeholder="(use default)">
             </div>
             <br>
-            <div class="ui form">
-                <div class="inline fields">
-                    <label>Records types</label>
-                        <div class="field">
-                            <div class="ui checkbox">
-                                <input type="checkbox" name="frequency" checked="checked">
-                                    <label>A</label>
-                            </div>
-                        </div>
-                        <div class="field">
-                            <div class="ui checkbox">
-                                <input type="checkbox" name="frequency" checked="checked">
-                                    <label>AAAA</label>
-                            </div>
-                        </div>
+            <div class="ui checkbox">
+                <input type="checkbox">
+                <label>Query all DNS servers, not just first response</label>
+            </div>
+            <br>
+            <br>
+            <div class="ui horizontal list">
+                <div class="item">
+                    <div class="ui label">Record Types</div>
+                </div>
+                <div class="item">
+                    <div class="ui checkbox">
+                        <input type="checkbox">
+                        <label>A</label>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="ui checkbox">
+                        <input type="checkbox">
+                        <label>AAAA</label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -153,9 +162,13 @@
                 {% endfor %}
             {% endif %}
         </div>
-
+        <br>
+        ASN details provided by <a href="https://www.ripe.net/">Ripe</a>. Volunteer and <a
+            href="https://atlas.ripe.net/">help out with a probe</a>!
     </div>
-
+    <h4 class="ui horizontal divider header" id="json_section">
+        DNS
+    </h4>
     <br>
     <br>
     <br>

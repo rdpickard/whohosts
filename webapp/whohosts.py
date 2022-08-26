@@ -46,7 +46,6 @@ class CacheIfCacheCan:
 
             return value
 
-
     def set(self, key, value, timeout=None, is_json=False):
         if self._redis_interface is None:
             pass
@@ -59,23 +58,27 @@ class CacheIfCacheCan:
             else:
                     self._redis_interface.set(key, value, timeout)
 
+def load_cloud_provider_ip_space_from_file(provider_ip_space_data):
+    cloud_providers_ip_space = provider_ip_space_data["providers"]
+
+    cloud_providers_ip_networks = dict()
+    for cloud_provider, cloud_provider_info in cloud_providers_ip_space.items():
+        print(cloud_provider)
+        ip_space = cloud_provider_info["prefixes"]
+        cloud_providers_ip_networks[cloud_provider] = list(map(lambda cidr: netaddr.IPNetwork(cidr), ip_space))
+    app.config['cloud_providers_ip_networks'] = cloud_providers_ip_networks
+
+    providers_table = dict()
+    for cloud_provider, ip_space in cloud_providers_ip_networks.items():
+        size = sum(map(lambda ipnet: ipnet.size, ip_space))
+        providers_table[cloud_provider] = f"Across {len(ip_space)} known ranges"
+
+    app.config['providers_table'] = providers_table
 
 with open('../provider_ip_space.json', 'r') as f:
     provider_ip_space_data = json.load(f)
 
-cloud_providers_ip_space = provider_ip_space_data["providers"]
-
-cloud_providers_ip_networks = dict()
-for cloud_provider, cloud_provider_info in cloud_providers_ip_space.items():
-    print(cloud_provider)
-    ip_space = cloud_provider_info["prefixes"]
-    cloud_providers_ip_networks[cloud_provider] = list(map(lambda cidr: netaddr.IPNetwork(cidr), ip_space))
-
-providers_table = dict()
-for cloud_provider, ip_space in cloud_providers_ip_networks.items():
-    size = sum(map(lambda ipnet: ipnet.size, ip_space))
-    providers_table[cloud_provider] = f"Across {len(ip_space)} known ranges"
-
+load_cloud_provider_ip_space_from_file(provider_ip_space_data)
 
 if os.environ.get(ENVVAR_REDIS_HOST_NAME, None) is not None:
     r = redis.Redis(host='localhost',
@@ -84,6 +87,7 @@ if os.environ.get(ENVVAR_REDIS_HOST_NAME, None) is not None:
     cache = CacheIfCacheCan(r)
 else:
     cache = CacheIfCacheCan(None)
+
 
 
 @app.route('/css/<path:path>')
@@ -114,7 +118,7 @@ def provider(provider_name):
     else:
         return_json=False
 
-    if provider_name not in cloud_providers_ip_networks:
+    if provider_name not in app.config['cloud_providers_ip_networks']:
         message = "Provider not known"
         if return_json:
             return jsonify({"message": message}), 404
@@ -126,7 +130,7 @@ def provider(provider_name):
         provider_data["name"] = provider_name
         provider_data["ip_data_from"] = provider_ip_space_data["providers"][provider_name]["from"]
         provider_data["ip_data_gathered_date_utc"] = provider_ip_space_data["date"]
-        provider_data["ip_prefixes"] = list(map(lambda network: str(network), cloud_providers_ip_networks[provider_name]))
+        provider_data["ip_prefixes"] = list(map(lambda network: str(network), app.config['cloud_providers_ip_networks'][provider_name]))
 
         return jsonify(provider_data)
 
@@ -134,7 +138,7 @@ def provider(provider_name):
 @app.route("/index.html")
 @app.route("/index.htm")
 def default_page():
-    return flask.render_template("index.jinja2", providers_table=providers_table)
+    return flask.render_template("index.jinja2", providers_table=app.config['providers_table'])
 
 
 @app.route("/<lookup_target_list>")
@@ -153,7 +157,7 @@ def lookup(lookup_target_list):
         if return_json:
             return jsonify({"message": return_message}), 406
         else:
-            return flask.render_template("index.jinja2", error_message=return_message, providers_table=providers_table), 406
+            return flask.render_template("index.jinja2", error_message=return_message, providers_table=app.config['providers_table']), 406
 
     for lookup_target in lookup_targets:
         if not (re.match(ip_regex_complied, lookup_target) or re.match(hostname_regex_compiled, lookup_target)):
@@ -161,7 +165,7 @@ def lookup(lookup_target_list):
             if return_json:
                 return jsonify({"message": return_message}), 406
             else:
-                return flask.render_template("index.jinja2", error_message=return_message, providers_table=providers_table), 406
+                return flask.render_template("index.jinja2", error_message=return_message, providers_table=app.config['providers_table']), 406
 
     for lookup_target in lookup_targets:
 
@@ -176,7 +180,7 @@ def lookup(lookup_target_list):
             if return_json:
                 return jsonify({"message": return_message}), 406
             else:
-                return flask.render_template("index.jinja2", error_message=return_message, providers_table=providers_table), 406
+                return flask.render_template("index.jinja2", error_message=return_message, providers_table=app.config['providers_table']), 406
 
         hosting_table[hostname] = dict()
 
@@ -189,7 +193,7 @@ def lookup(lookup_target_list):
                 hosting_table[hostname][ip]["as"] = {"asn": asn, "prefix": prefix, "holder": holder}
 
                 hosting_table[hostname][ip]["cloud_providers"] = []
-                for provider, provider_ipnetworks in cloud_providers_ip_networks.items():
+                for provider, provider_ipnetworks in app.config['cloud_providers_ip_networks'].items():
                     for provider_ipnetwork in provider_ipnetworks:
                         if ipaddress in provider_ipnetwork:
                             hosting_table[hostname][ip]["cloud_providers"].append((provider, str(provider_ipnetwork)))
@@ -197,7 +201,7 @@ def lookup(lookup_target_list):
     if return_json:
         return hosting_table
     else:
-        return flask.render_template("index.jinja2", hosting_table=hosting_table, providers_table=providers_table)
+        return flask.render_template("index.jinja2", hosting_table=hosting_table, providers_table=app.config['providers_table'])
 
 
 def look_for_ip_in_provider_space(ip):
@@ -205,7 +209,7 @@ def look_for_ip_in_provider_space(ip):
     provider_tuples = list()
 
     ipaddress = netaddr.IPAddress(ip)
-    for provider, provider_ipnetworks in cloud_providers_ip_networks.items():
+    for provider, provider_ipnetworks in app.config['cloud_providers_ip_networks'].items():
         for provider_ipnetwork in provider_ipnetworks:
             if ipaddress in provider_ipnetwork:
                 provider_tuples.append((provider, str(provider_ipnetwork)))
