@@ -251,6 +251,7 @@ def lookup(lookup_target_list):
                 return flask.render_template("index.jinja2", error_message=return_message,
                                              providers_table=app.config['gui_provider_table']), 406
 
+    dns_servers = None
     if "dns_servers" in request.args.keys():
         dns_servers = request.args["dns_servers"].split(",")
         bad_servers = []
@@ -264,13 +265,10 @@ def lookup(lookup_target_list):
                                                        f"{bad_servers_list} not usable",
                                          providers_table=app.config['gui_provider_table']), 406
 
-    else:
-        dns_servers = None
-
+    dns_query_all_servers = False
     if "dns_query_all_servers" in request.args.keys():
-        dns_query_all_servers = True
-    else:
-        dns_query_all_servers = False
+        if request.args["dns_query_all_servers"].lower() == "true":
+            dns_query_all_servers = True
 
     for lookup_target in lookup_targets:
 

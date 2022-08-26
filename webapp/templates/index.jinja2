@@ -42,8 +42,8 @@
                id="whohosts_hostnames"/>
         <button class="ui button green" id="whohosts_button">Who hosts</button>
     </div>
-    <div class="ui accordion">
-        <div class=" title">
+    <div class="ui accordion" >
+        <div class=" title" id="show_more_settings">
             <i class="dropdown icon"></i>
             More settings
         </div>
@@ -54,12 +54,12 @@
                     <div class="ui label">
                         DNS Server IPs
                     </div>
-                    <input type="text" placeholder="(use default)">
+                    <input type="text" placeholder="(use default)" value="{{ dns_servers }}" id="dns_servers">
                 </div>
             </div>
             <br>
             <div class="ui checkbox">
-                <input type="checkbox">
+                <input type="checkbox" id="dns_query_all_servers" {% if dns_query_all_servers %} checked {% endif %}>
                 <label>Query all DNS servers, not just first response</label>
             </div>
             <br>
@@ -168,6 +168,11 @@
         $("#curl-example").text("curl -H 'Content-Type: application/json' " + window.location.href)
         lookup_targets = window.location.pathname.replace("/", "").split(",")
         $('#whohosts_hostnames').val(lookup_targets.join(" "))
+
+        var arr = window.location.search.substring(1);
+        if (arr.length > 1 && arr[1] !== '') {
+            $("#show_more_settings").click()
+        }
     });
 
     $('#whohosts_hostnames').keypress(function (e) {
@@ -180,7 +185,9 @@
 
     $("#whohosts_button").click(function () {
         lookup_targets = $("#whohosts_hostnames").val().trim().replace(/\s\s+/g, ' ').replace(/\t/g, ' ').split(" ")
-        window.location = window.location.protocol + "//" + window.location.host + "/" + lookup_targets.join(",");
+        params = $.param({"dns_servers": $("#dns_servers").val().split(" ").join(","), "dns_query_all_servers": $("#dns_query_all_servers").is(':checked')})
+
+        window.location = window.location.protocol + "//" + window.location.host + "/" + lookup_targets.join(",")+"?"+params;
     });
 
 </script>
