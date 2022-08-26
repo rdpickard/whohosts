@@ -275,7 +275,7 @@ def lookup(lookup_target_list):
         ip_info = None
 
         if re.match(hostname_regex_compiled, lookup_target):
-            if dns_query_all_servers:
+            if dns_query_all_servers and dns_servers is not None:
                 for dns_server in dns_servers:
                     c_ip_info = resolve_host_ip_addresses(lookup_target, [dns_server], True)
                     if c_ip_info is not None:

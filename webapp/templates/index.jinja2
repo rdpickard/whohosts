@@ -64,6 +64,7 @@
             </div>
             <br>
             <br>
+        <!--
             <div class="ui horizontal list">
                 <div class="item">
                     <div class="ui label">Record Types</div>
@@ -81,6 +82,7 @@
                     </div>
                 </div>
             </div>
+            -->
         </div>
     </div>
 
@@ -185,9 +187,21 @@
 
     $("#whohosts_button").click(function () {
         lookup_targets = $("#whohosts_hostnames").val().trim().replace(/\s\s+/g, ' ').replace(/\t/g, ' ').split(" ")
-        params = $.param({"dns_servers": $("#dns_servers").val().split(" ").join(","), "dns_query_all_servers": $("#dns_query_all_servers").is(':checked')})
 
-        window.location = window.location.protocol + "//" + window.location.host + "/" + lookup_targets.join(",")+"?"+params;
+        goto_url = window.location.protocol + "//" + window.location.host + "/" + lookup_targets.join(",")
+
+        params_dict = {}
+        if ($("#dns_servers").val().trim() != '') {
+            params_dict["dns_servers"] =  $("#dns_servers").val().split(" ").join(",")
+        }
+        if ($("#dns_query_all_servers").is(':checked') == true) {
+            params_dict["dns_query_all_servers"] =  $("#dns_query_all_servers").is(':checked')
+        }
+        if (Object.keys(params_dict).length > 0) {
+            goto_url = goto_url + "?" + $.param(params_dict)
+        }
+
+        window.location = goto_url
     });
 
 </script>
