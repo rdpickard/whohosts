@@ -1,11 +1,14 @@
 import re
 import json
+import logging
+import os
 
 import flask
 from flask import Flask, request, jsonify
 import netaddr
 import dns.resolver
 import requests
+import redis
 
 app = Flask(__name__)
 
@@ -15,17 +18,52 @@ hostname_regex_compiled = re.compile(hostname_regex)
 ip_regex = r'((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))'
 ip_regex_complied = re.compile(ip_regex)
 
+ENVVAR_REDIS_HOST_NAME = "redis_cache_host_name"
+ENVVAR_REDIS_HOST_PORT = "redis_cache_host_port"
+ENVVAR_REDIS_DB_ID = "redis_cache_db_id"
+
 
 class WhoHostsException(Exception):
     pass
+
+
+class CacheIfCacheCan:
+
+    _redis_interface = None
+
+    def __init__(self, redis_interface):
+        self._redis_interface = redis_interface
+
+    def get(self, key, is_json=False):
+        if self._redis_interface is None:
+            return None
+        else:
+            value = self._redis_interface.get(key)
+            if value is None:
+                return None
+            elif is_json:
+                value = json.loads(value)
+
+            return value
+
+
+    def set(self, key, value, timeout=None, is_json=False):
+        if self._redis_interface is None:
+            pass
+        else:
+            if is_json:
+                value = json.dumps(value)
+
+            if timeout is None:
+                    self._redis_interface.set(key, value)
+            else:
+                    self._redis_interface.set(key, value, timeout)
 
 
 with open('../provider_ip_space.json', 'r') as f:
     provider_ip_space_data = json.load(f)
 
 cloud_providers_ip_space = provider_ip_space_data["providers"]
-
-print(cloud_providers_ip_space.keys())
 
 cloud_providers_ip_networks = dict()
 for cloud_provider, cloud_provider_info in cloud_providers_ip_space.items():
@@ -37,6 +75,16 @@ providers_table = dict()
 for cloud_provider, ip_space in cloud_providers_ip_networks.items():
     size = sum(map(lambda ipnet: ipnet.size, ip_space))
     providers_table[cloud_provider] = f"Across {len(ip_space)} known ranges"
+
+
+if os.environ.get(ENVVAR_REDIS_HOST_NAME, None) is not None:
+    r = redis.Redis(host='localhost',
+                    port=os.environ.get(ENVVAR_REDIS_HOST_PORT, 6379),
+                    db=os.environ.get(ENVVAR_REDIS_DB_ID, 0))
+    cache = CacheIfCacheCan(r)
+else:
+    cache = CacheIfCacheCan(None)
+
 
 @app.route('/css/<path:path>')
 def send_css(path):
@@ -213,35 +261,53 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
 
 def asn_info_for_ip(ipaddress):
 
-    ans_info = dict()
+    global cache
 
-    ripe_atlas_ni_url = f"https://stat.ripe.net/data/network-info/data.json?resource={ipaddress}"
-    ripe_atlas_ni_response = requests.get(ripe_atlas_ni_url)
-    if ripe_atlas_ni_response.status_code != 200:
-        raise WhoHostsException(f"Could not look up network info for IP '{ipaddress}' from RIPE ATLAS URL '{ripe_atlas_ni_url}'. Request returned status {ripe_atlas_ni_response.status_code}, expected 200. Bailing")
+    ni_cache_key = f"ripe_network-info_{ipaddress}"
+    ni_doc = cache.get(ni_cache_key, is_json=True)
 
-    if len(ripe_atlas_ni_response.json()["data"]["asns"]) == 0:
-        return None, None, None
-    if len(ripe_atlas_ni_response.json()["data"]["asns"]) > 1:
-        raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned more than one ASN for IP '{ipaddress}'. ANSs -> {','.join(ripe_atlas_ni_response.json()['data']['asns'])}. Expected only one ASN. Bailing")
-    if len(ripe_atlas_ni_response.json()["data"]["prefix"]) == 0:
-        raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned no prefix in ASN {ripe_atlas_ni_response.json()['data']['asns'][0]} for IP '{ipaddress}'. Expected only one ASN. Bailing")
-    try:
-        netaddr.IPNetwork(ripe_atlas_ni_response.json()["data"]["prefix"])
-    except netaddr.core.AddrFormatError:
-        raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned prefix {ripe_atlas_ni_response.json()['data']['prefix']} in ASN {ripe_atlas_ni_response.json()['data']['asns'][0]} for IP '{ipaddress}' that doens't look like a IP network. Bailing")
+    if ni_doc is None:
 
-    asn = ripe_atlas_ni_response.json()["data"]["asns"][0]
-    prefix = ripe_atlas_ni_response.json()["data"]["prefix"]
+        ripe_atlas_ni_url = f"https://stat.ripe.net/data/network-info/data.json?resource={ipaddress}"
+        ripe_atlas_ni_response = requests.get(ripe_atlas_ni_url)
+        if ripe_atlas_ni_response.status_code != 200:
+            raise WhoHostsException(f"Could not look up network info for IP '{ipaddress}' from RIPE ATLAS URL '{ripe_atlas_ni_url}'. Request returned status {ripe_atlas_ni_response.status_code}, expected 200. Bailing")
 
-    ripe_atlas_as_url = f"https://stat.ripe.net/data/as-overview/data.json?resource={asn}"
-    ripe_atlas_as_response = requests.get(ripe_atlas_as_url)
-    if ripe_atlas_as_response.status_code != 200:
-        raise WhoHostsException(f"Could not look up as overview info for ASN '{asn}' from RIPE ATLAS URL '{ripe_atlas_as_url}'. Request returned status {ripe_atlas_as_response.status_code}, expected 200. Bailing")
+        ni_doc = ripe_atlas_ni_response.json()
 
-    holder = ripe_atlas_as_response.json()["data"]["holder"]
+        if len(ni_doc["data"]["asns"]) == 0:
+            return None, None, None
+        if len(ni_doc["data"]["asns"]) > 1:
+            raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned more than one ASN for IP '{ipaddress}'. ANSs -> {','.join(ni_doc['data']['asns'])}. Expected only one ASN. Bailing")
+        if len(ni_doc["data"]["prefix"]) == 0:
+            raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned no prefix in ASN {ni_doc['data']['asns'][0]} for IP '{ipaddress}'. Expected only one ASN. Bailing")
+        try:
+            netaddr.IPNetwork(ni_doc["data"]["prefix"])
+        except netaddr.core.AddrFormatError:
+            raise WhoHostsException(f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned prefix {ni_doc['data']['prefix']} in ASN {ni_doc['data']['asns'][0]} for IP '{ipaddress}' that doesn't look like a IP network. Bailing")
+
+        cache.set(ni_cache_key, ni_doc, is_json=True)
+
+    asn = ni_doc["data"]["asns"][0]
+    prefix = ni_doc["data"]["prefix"]
+
+    as_cache_key = f"ripe_as-overview_{ipaddress}"
+    as_doc = cache.get(as_cache_key, is_json=True)
+
+    if as_doc is None:
+
+        ripe_atlas_as_url = f"https://stat.ripe.net/data/as-overview/data.json?resource={asn}"
+        ripe_atlas_as_response = requests.get(ripe_atlas_as_url)
+        if ripe_atlas_as_response.status_code != 200:
+            raise WhoHostsException(f"Could not look up as overview info for ASN '{asn}' from RIPE ATLAS URL '{ripe_atlas_as_url}'. Request returned status {ripe_atlas_as_response.status_code}, expected 200. Bailing")
+
+        as_doc = ripe_atlas_as_response.json()
+        cache.set(as_cache_key, as_doc, is_json=True)
+
+    holder = as_doc["data"]["holder"]
 
     return asn, prefix, holder
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5050)
