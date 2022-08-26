@@ -2,6 +2,7 @@ import re
 import json
 import logging
 import os
+import urllib.parse
 
 import flask
 from flask import Flask, request, jsonify
@@ -9,6 +10,7 @@ import netaddr
 import dns.resolver
 import requests
 import redis
+import jsonschema
 
 app = Flask(__name__)
 
@@ -21,6 +23,37 @@ ip_regex_complied = re.compile(ip_regex)
 ENVVAR_REDIS_HOST_NAME = "redis_cache_host_name"
 ENVVAR_REDIS_HOST_PORT = "redis_cache_host_port"
 ENVVAR_REDIS_DB_ID = "redis_cache_db_id"
+
+provider_ip_space_jsonschema = {
+    "$id": "https://example.com/person.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Cloud Provider IP Space File",
+    "type": "object",
+    "properties": {
+        "date": {
+            "type": "string"
+        },
+        "providers": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "from": {"type": "string"},
+                    "prefixes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["from", "prefixes"],
+                "additionalProperties": False
+            }
+        },
+    },
+    "required": ["date", "providers"],
+    "additionalProperties": False
+}
 
 
 class WhoHostsException(Exception):
@@ -58,7 +91,36 @@ class CacheIfCacheCan:
                 self._redis_interface.set(key, value, timeout)
 
 
-def load_cloud_provider_ip_space_from_file(provider_ip_space_data):
+def load_cloud_provider_ip_space_from_file(provider_file_url):
+
+    try:
+        parsed_file_url = urllib.parse.urlparse(provider_file_url)
+        provider_ip_space_data = None
+
+        if parsed_file_url.scheme == 'file':
+            try:
+                with open(parsed_file_url.path, 'r') as f:
+                    provider_ip_space_data = json.load(f)
+            except FileNotFoundError as fne:
+                raise WhoHostsException(
+                    f"Could not parse provider space file url '{provider_file_url}'. File '{parsed_file_url.path}' does not exist at '{os.getcwd()}'. Bailing.")
+            except Exception as e:
+                raise WhoHostsException(
+                    f"Could not load provider space file url '{provider_file_url}'. Exception message is '{e}' Bailing.")
+        else:
+            raise WhoHostsException(
+                f"Could not load provider space file url '{provider_file_url}'. Scheme isn't supported '{parsed_file_url.scheme}' Bailing.")
+
+    except Exception as e:
+        raise WhoHostsException(
+            f"Could not parse provider space file url '{provider_file_url}'. Exception message is '{e}' Bailing.")
+
+    try:
+        jsonschema.validate(provider_ip_space_data, provider_ip_space_jsonschema)
+    except jsonschema.exceptions.ValidationError as jve:
+        raise WhoHostsException(
+            f"Could not validate provider space data in '{provider_file_url}'. Validation problem is '{jve}' Bailing.")
+
     cloud_providers_ip_space = provider_ip_space_data["providers"]
 
     cloud_providers_ip_networks = dict()
@@ -76,10 +138,7 @@ def load_cloud_provider_ip_space_from_file(provider_ip_space_data):
     app.config['providers_table'] = providers_table
 
 
-with open('../provider_ip_space.json', 'r') as f:
-    provider_ip_space_data = json.load(f)
-
-load_cloud_provider_ip_space_from_file(provider_ip_space_data)
+load_cloud_provider_ip_space_from_file("file:../provider_ip_space.json")
 
 if os.environ.get(ENVVAR_REDIS_HOST_NAME, None) is not None:
     r = redis.Redis(host='localhost',
@@ -232,7 +291,7 @@ def lookup(lookup_target_list):
 
                 for cloud_provider in cloud_providers:
                     ip_details["cloud_provider"] = cloud_provider[0]
-                    ip_details["cloud_provider_prefix"] =  cloud_provider[1]
+                    ip_details["cloud_provider_prefix"] = cloud_provider[1]
 
                 hosting_table[hostname]["ip_info"].append(ip_details)
 
