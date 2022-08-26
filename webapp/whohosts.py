@@ -17,7 +17,23 @@ app = Flask(__name__)
 hostname_regex = r'(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)'
 hostname_regex_compiled = re.compile(hostname_regex)
 
-ip_regex = r'((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))'
+ip_regex = r'((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|' \
+           r'25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|' \
+           r'(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}' \
+           r'|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|' \
+           r'(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|' \
+           r'[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|' \
+           r'(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|' \
+           r'((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|' \
+           r'(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|' \
+           r'[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|' \
+           r'(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|' \
+           r'((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|' \
+           r'[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|' \
+           r'(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|' \
+           r'((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|' \
+           r'1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|' \
+           r'1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))'
 ip_regex_complied = re.compile(ip_regex)
 
 ENVVAR_REDIS_HOST_NAME = "redis_cache_host_name"
@@ -92,24 +108,25 @@ class CacheIfCacheCan:
 
 
 def load_cloud_provider_ip_space_from_file(provider_file_url):
-
     try:
         parsed_file_url = urllib.parse.urlparse(provider_file_url)
-        provider_ip_space_data = None
 
         if parsed_file_url.scheme == 'file':
             try:
                 with open(parsed_file_url.path, 'r') as f:
                     provider_ip_space_data = json.load(f)
-            except FileNotFoundError as fne:
+            except FileNotFoundError:
                 raise WhoHostsException(
-                    f"Could not parse provider space file url '{provider_file_url}'. File '{parsed_file_url.path}' does not exist at '{os.getcwd()}'. Bailing.")
+                    f"Could not parse provider space file url '{provider_file_url}'. File '{parsed_file_url.path}' "
+                    f"does not exist at '{os.getcwd()}'. Bailing.")
             except Exception as e:
                 raise WhoHostsException(
-                    f"Could not load provider space file url '{provider_file_url}'. Exception message is '{e}' Bailing.")
+                    f"Could not load provider space file url '{provider_file_url}'. "
+                    f"Exception message is '{e}' Bailing.")
         else:
             raise WhoHostsException(
-                f"Could not load provider space file url '{provider_file_url}'. Scheme isn't supported '{parsed_file_url.scheme}' Bailing.")
+                f"Could not load provider space file url '{provider_file_url}'. Scheme isn't "
+                f"supported '{parsed_file_url.scheme}' Bailing.")
 
     except Exception as e:
         raise WhoHostsException(
@@ -121,21 +138,20 @@ def load_cloud_provider_ip_space_from_file(provider_file_url):
         raise WhoHostsException(
             f"Could not validate provider space data in '{provider_file_url}'. Validation problem is '{jve}' Bailing.")
 
-    cloud_providers_ip_space = provider_ip_space_data["providers"]
+    cloud_providers_ip_space = provider_ip_space_data
 
-    cloud_providers_ip_networks = dict()
-    for cloud_provider, cloud_provider_info in cloud_providers_ip_space.items():
-        print(cloud_provider)
-        ip_space = cloud_provider_info["prefixes"]
-        cloud_providers_ip_networks[cloud_provider] = list(map(lambda cidr: netaddr.IPNetwork(cidr), ip_space))
-    app.config['cloud_providers_ip_networks'] = cloud_providers_ip_networks
+    for cloud_provider, cloud_provider_info in cloud_providers_ip_space["providers"].items():
+        cloud_provider_info["prefix_networks"] = list(
+            map(lambda cidr: netaddr.IPNetwork(cidr), cloud_provider_info["prefixes"]))
+        cloud_provider_info["meta"] = dict()
+        cloud_provider_info["meta"][
+            "ui_description"] = f"Across {len(cloud_provider_info['prefix_networks'])} known ranges"
 
-    providers_table = dict()
-    for cloud_provider, ip_space in cloud_providers_ip_networks.items():
-        size = sum(map(lambda ipnet: ipnet.size, ip_space))
-        providers_table[cloud_provider] = f"Across {len(ip_space)} known ranges"
+    app.config['cloud_providers_ip_space'] = cloud_providers_ip_space
 
-    app.config['providers_table'] = providers_table
+    app.config['gui_provider_table'] = dict()
+    for cloud_provider, provider_info in app.config['cloud_providers_ip_space']["providers"].items():
+        app.config['gui_provider_table'][cloud_provider] = provider_info["meta"]["ui_description"]
 
 
 load_cloud_provider_ip_space_from_file("file:../provider_ip_space.json")
@@ -168,6 +184,10 @@ def send_font(path):
 def send_media(path):
     return flask.send_from_directory('staticfiles/media', path)
 
+@app.route('/favicon.ico')
+def send_icon():
+    return [None, 404]
+
 
 @app.route('/provider/<provider_name>')
 def provider(provider_name):
@@ -176,7 +196,7 @@ def provider(provider_name):
     else:
         return_json = False
 
-    if provider_name not in app.config['cloud_providers_ip_networks']:
+    if provider_name not in app.config['cloud_providers_ip_space']["providers"].keys():
         message = "Provider not known"
         if return_json:
             return jsonify({"message": message}), 404
@@ -186,10 +206,11 @@ def provider(provider_name):
     else:
         provider_data = dict()
         provider_data["name"] = provider_name
-        provider_data["ip_data_from"] = provider_ip_space_data["providers"][provider_name]["from"]
-        provider_data["ip_data_gathered_date_utc"] = provider_ip_space_data["date"]
+        provider_data["ip_data_from"] = app.config['cloud_providers_ip_space']["providers"][provider_name]["from"]
+        provider_data["ip_data_gathered_date_utc"] = app.config['cloud_providers_ip_space']["date"]
         provider_data["ip_prefixes"] = list(
-            map(lambda network: str(network), app.config['cloud_providers_ip_networks'][provider_name]))
+            map(lambda network: str(network),
+                app.config['cloud_providers_ip_space']["providers"][provider_name]["prefixes"]))
 
         return jsonify(provider_data)
 
@@ -198,11 +219,12 @@ def provider(provider_name):
 @app.route("/index.html")
 @app.route("/index.htm")
 def default_page():
-    return flask.render_template("index.jinja2", providers_table=app.config['providers_table'])
+    return flask.render_template("index.jinja2", providers_table=app.config['gui_provider_table'])
 
 
 @app.route("/<lookup_target_list>")
 def lookup(lookup_target_list):
+
     hosting_table = dict()
 
     if flask.request.content_type is not None and flask.request.content_type.startswith('application/json'):
@@ -211,13 +233,14 @@ def lookup(lookup_target_list):
         return_json = False
 
     lookup_targets = lookup_target_list.split(",")
+
     if len(lookup_targets) > 5:
         return_message = f"Max 5 targets in request. {len(lookup_targets)} provided"
         if return_json:
             return jsonify({"message": return_message}), 406
         else:
             return flask.render_template("index.jinja2", error_message=return_message,
-                                         providers_table=app.config['providers_table']), 406
+                                         providers_table=app.config['gui_provider_table']), 406
 
     for lookup_target in lookup_targets:
         if not (re.match(ip_regex_complied, lookup_target) or re.match(hostname_regex_compiled, lookup_target)):
@@ -226,10 +249,28 @@ def lookup(lookup_target_list):
                 return jsonify({"message": return_message}), 406
             else:
                 return flask.render_template("index.jinja2", error_message=return_message,
-                                             providers_table=app.config['providers_table']), 406
+                                             providers_table=app.config['gui_provider_table']), 406
 
-    dns_servers = ["8.8.8.8", "1.1.1.1"]
-    dns_query_all_servers = False
+    if "dns_servers" in request.args.keys():
+        dns_servers = request.args["dns_servers"].split(",")
+        bad_servers = []
+        for dns_server in dns_servers:
+            if not re.match(ip_regex_complied, dns_server):
+                bad_servers.append(dns_server)
+        if len(bad_servers) > 0:
+            bad_servers_list = ",".join(bad_servers)
+            return flask.render_template("index.jinja2",
+                                         error_message=f"DNS Servers must be IP addresses. Values "
+                                                       f"{bad_servers_list} not usable",
+                                         providers_table=app.config['gui_provider_table']), 406
+
+    else:
+        dns_servers = None
+
+    if "dns_query_all_servers" in request.args.keys():
+        dns_query_all_servers = True
+    else:
+        dns_query_all_servers = False
 
     for lookup_target in lookup_targets:
 
@@ -254,8 +295,8 @@ def lookup(lookup_target_list):
             if return_json:
                 return jsonify({"message": return_message}), 406
             else:
-                return flask.render_template("index.jinja2", error_message=return_message,
-                                             providers_table=app.config['providers_table']), 406
+                return [flask.render_template("index.jinja2", error_message=return_message,
+                                              providers_table=app.config['gui_provider_table']), 406]
 
         hosting_table[hostname] = dict()
         hosting_table[hostname]["ip_info"] = None
@@ -281,7 +322,8 @@ def lookup(lookup_target_list):
 
                 cloud_providers = []
 
-                for cloud_provider, provider_ipnetworks in app.config['cloud_providers_ip_networks'].items():
+                for cloud_provider, provider_info in app.config['cloud_providers_ip_space']["providers"].items():
+                    provider_ipnetworks = provider_info["prefix_networks"]
                     for provider_ipnetwork in provider_ipnetworks:
                         if ipaddress in provider_ipnetwork:
                             cloud_providers.append((cloud_provider, str(provider_ipnetwork)))
@@ -298,18 +340,21 @@ def lookup(lookup_target_list):
     if return_json:
         return hosting_table
     else:
-        return flask.render_template("index.jinja2", hosting_table=hosting_table,
-                                     providers_table=app.config['providers_table'])
+        return flask.render_template("index.jinja2",
+                                     hosting_table=hosting_table,
+                                     providers_table=app.config['gui_provider_table'],
+                                     dns_servers=" ".join(dns_servers or []),
+                                     dns_query_all_servers = dns_query_all_servers)
 
 
 def look_for_ip_in_provider_space(ip):
     provider_tuples = list()
 
     ipaddress = netaddr.IPAddress(ip)
-    for provider, provider_ipnetworks in app.config['cloud_providers_ip_networks'].items():
+    for cloud_provider, provider_ipnetworks in app.config['cloud_providers_ip_networks'].items():
         for provider_ipnetwork in provider_ipnetworks:
             if ipaddress in provider_ipnetwork:
-                provider_tuples.append((provider, str(provider_ipnetwork)))
+                provider_tuples.append((cloud_provider, str(provider_ipnetwork)))
 
     return provider_tuples
 
@@ -336,7 +381,7 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
                     f"DNS resolution of {hostname} has CNAME but follow_cname not set to True. Bailing")
             else:
                 return resolve_host_ip_addresses(str(answers[0]), dns_server_ips, follow_cname=False)
-        except dns.resolver.NoAnswer as na:
+        except dns.resolver.NoAnswer:
             pass
 
         all_ips = []
@@ -347,7 +392,7 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
             ip_v6_dns_responder = v6_answers.nameserver
             for ip_v6_address in ip_v6_addresses:
                 all_ips.append({"ip_address": ip_v6_address, "dns_responder": ip_v6_dns_responder})
-        except dns.resolver.NoAnswer as na:
+        except dns.resolver.NoAnswer:
             pass
 
         try:
@@ -356,10 +401,10 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
             ip_v4_dns_responder = v4_answers.nameserver
             for ip_v4_address in ip_v4_addresses:
                 all_ips.append({"ip_address": ip_v4_address, "dns_responder": ip_v4_dns_responder})
-        except dns.resolver.NoAnswer as na:
+        except dns.resolver.NoAnswer:
             pass
 
-    except dns.resolver.NXDOMAIN as nxd:
+    except dns.resolver.NXDOMAIN:
         return None
 
     return all_ips
@@ -377,7 +422,8 @@ def asn_info_for_ip(ipaddress):
         ripe_atlas_ni_response = requests.get(ripe_atlas_ni_url)
         if ripe_atlas_ni_response.status_code != 200:
             raise WhoHostsException(
-                f"Could not look up network info for IP '{ipaddress}' from RIPE ATLAS URL '{ripe_atlas_ni_url}'. Request returned status {ripe_atlas_ni_response.status_code}, expected 200. Bailing")
+                f"Could not look up network info for IP '{ipaddress}' from RIPE ATLAS URL '{ripe_atlas_ni_url}'. "
+                f"Request returned status {ripe_atlas_ni_response.status_code}, expected 200. Bailing")
 
         ni_doc = ripe_atlas_ni_response.json()
 
@@ -385,15 +431,18 @@ def asn_info_for_ip(ipaddress):
             return None, None, None
         if len(ni_doc["data"]["asns"]) > 1:
             raise WhoHostsException(
-                f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned more than one ASN for IP '{ipaddress}'. ANSs -> {','.join(ni_doc['data']['asns'])}. Expected only one ASN. Bailing")
+                f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned more than one ASN for IP '{ipaddress}'. "
+                f"ANSs -> {','.join(ni_doc['data']['asns'])}. Expected only one ASN. Bailing")
         if len(ni_doc["data"]["prefix"]) == 0:
             raise WhoHostsException(
-                f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned no prefix in ASN {ni_doc['data']['asns'][0]} for IP '{ipaddress}'. Expected only one ASN. Bailing")
+                f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned no prefix in ASN {ni_doc['data']['asns'][0]} for IP "
+                f"'{ipaddress}'. Expected only one ASN. Bailing")
         try:
             netaddr.IPNetwork(ni_doc["data"]["prefix"])
         except netaddr.core.AddrFormatError:
             raise WhoHostsException(
-                f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned prefix {ni_doc['data']['prefix']} in ASN {ni_doc['data']['asns'][0]} for IP '{ipaddress}' that doesn't look like a IP network. Bailing")
+                f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned prefix {ni_doc['data']['prefix']} in "
+                f"ASN {ni_doc['data']['asns'][0]} for IP '{ipaddress}' that doesn't look like a IP network. Bailing")
 
         cache.set(ni_cache_key, ni_doc, is_json=True)
 
@@ -409,7 +458,8 @@ def asn_info_for_ip(ipaddress):
         ripe_atlas_as_response = requests.get(ripe_atlas_as_url)
         if ripe_atlas_as_response.status_code != 200:
             raise WhoHostsException(
-                f"Could not look up as overview info for ASN '{asn}' from RIPE ATLAS URL '{ripe_atlas_as_url}'. Request returned status {ripe_atlas_as_response.status_code}, expected 200. Bailing")
+                f"Could not look up as overview info for ASN '{asn}' from RIPE ATLAS URL '{ripe_atlas_as_url}'. "
+                f"Request returned status {ripe_atlas_as_response.status_code}, expected 200. Bailing")
 
         as_doc = ripe_atlas_as_response.json()
         cache.set(as_cache_key, as_doc, is_json=True)
