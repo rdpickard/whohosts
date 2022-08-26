@@ -85,13 +85,13 @@
     </div>
 
     <table class="ui celled padded table">
-
         <thead>
         <tr>
             <th class="single line">Hostname</th>
             <th>IP Address</th>
-            <th>Provider</th>
-            <th>Provider Range</th>
+            <th>DNS Responder</th>
+            <th>Cloud Provider</th>
+            <th>Cloud Provider Range</th>
             <th>ASN</th>
             <th>AS Prefix</th>
             <th>AS Holder</th>
@@ -99,34 +99,21 @@
         </thead>
         <tbody>
         {% if hosting_table is defined %}
-            {% for hostname, host_ips in hosting_table.items() %}
-                {% for ipaddress, ipaddress_details in host_ips.items() %}
-                    {% if ipaddress_details["cloud_providers"]|length > 0 %}
-                        {% for provider in ipaddress_details["cloud_providers"] %}
+            {% for hostname, host_details in hosting_table.items() %}
+                {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
+                    {% for ip_info in host_details['ip_info'] %}
                             <tr>
                                 <td> {{ hostname }} </td>
-                                <td> {{ ipaddress }} </td>
-                                <td> {{ provider[0] }} </td>
-                                <td> {{ provider[1] }} </td>
-                                <td> {{ ipaddress_details["as"]["asn"] }} </td>
-                                <td> {{ ipaddress_details["as"]["prefix"] }} </td>
-                                <td> {{ ipaddress_details["as"]["holder"] }} </td>
-
+                                <td> {{ ip_info["ip_address"] }} </td>
+                                <td> {{ ip_info["dns_responder"] }} </td>
+                                <td> {{ ip_info["cloud_provider"] }} </td>
+                                <td> {{ ip_info["cloud_provider_prefix"] }} </td>
+                                <td> {{ ip_info["asn"] }} </td>
+                                <td> {{ ip_info["as_prefix"] }} </td>
+                                <td> {{ ip_info["as_holder"] }} </td>
                             </tr>
                         {% endfor %}
-
-                    {% else %}
-                        <tr>
-                            <td> {{ hostname }} </td>
-                            <td> {{ ipaddress }} </td>
-                            <td></td>
-                            <td></td>
-                            <td> {{ ipaddress_details["as"]["asn"] }} </td>
-                            <td> {{ ipaddress_details["as"]["prefix"] }} </td>
-                            <td> {{ ipaddress_details["as"]["holder"] }} </td>
-                        </tr>
                     {% endif %}
-                {% endfor %}
             {% endfor %}
         {% else %}
             <tr>
