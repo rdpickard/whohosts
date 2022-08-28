@@ -184,6 +184,7 @@ def send_font(path):
 def send_media(path):
     return flask.send_from_directory('staticfiles/media', path)
 
+
 @app.route('/favicon.ico')
 def send_icon():
     return [None, 404]
@@ -342,7 +343,7 @@ def lookup(lookup_target_list):
                                      hosting_table=hosting_table,
                                      providers_table=app.config['gui_provider_table'],
                                      dns_servers=" ".join(dns_servers or []),
-                                     dns_query_all_servers = dns_query_all_servers)
+                                     dns_query_all_servers=dns_query_all_servers)
 
 
 def look_for_ip_in_provider_space(ip):
