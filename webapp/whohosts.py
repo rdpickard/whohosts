@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import urllib.parse
+import sys
 
 import flask
 from flask import Flask, request, jsonify
@@ -11,8 +12,10 @@ import dns.resolver
 import requests
 import redis
 import jsonschema
+import s3fs
 
 app = Flask(__name__)
+app.logger.setLevel(logging.DEBUG)
 
 hostname_regex = r'(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)'
 hostname_regex_compiled = re.compile(hostname_regex)
@@ -36,40 +39,17 @@ ip_regex = r'((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9
            r'1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))'
 ip_regex_complied = re.compile(ip_regex)
 
-ENVVAR_REDIS_HOST_NAME = "redis_cache_host_name"
-ENVVAR_REDIS_HOST_PORT = "redis_cache_host_port"
-ENVVAR_REDIS_DB_ID = "redis_cache_db_id"
+ENV_VAR_REDIS_URL = "REDISCLOUD_URL"
+PROVIDER_IP_SPACE_FILE_SCHEMA_PATH = "../schemas/whohosts_provider_ip_space_schema.json"
 
-provider_ip_space_jsonschema = {
-    "$id": "https://example.com/person.schema.json",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "Cloud Provider IP Space File",
-    "type": "object",
-    "properties": {
-        "date": {
-            "type": "string"
-        },
-        "providers": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "object",
-                "properties": {
-                    "from": {"type": "string"},
-                    "prefixes": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "required": ["from", "prefixes"],
-                "additionalProperties": False
-            }
-        },
-    },
-    "required": ["date", "providers"],
-    "additionalProperties": False
-}
+app.logger.debug(f"Loading provider IP space file schema file {PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}")
+try:
+    with open(PROVIDER_IP_SPACE_FILE_SCHEMA_PATH) as ip_space_schema_fp:
+        provider_ip_space_jsonschema = json.load(ip_space_schema_fp)
+except Exception as e:
+    app.logger.critical(f"Could not open or access provider IP space file schema file "
+                        f"'{PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}' from '{os.getcwd()}'. Can't start. Exiting")
+    sys.exit(-1)
 
 
 class WhoHostsException(Exception):
@@ -107,36 +87,26 @@ class CacheIfCacheCan:
                 self._redis_interface.set(key, value, timeout)
 
 
-def load_cloud_provider_ip_space_from_file(provider_file_url):
-    try:
-        parsed_file_url = urllib.parse.urlparse(provider_file_url)
+def load_cloud_provider_ip_space_from_file():
 
-        if parsed_file_url.scheme == 'file':
-            try:
-                with open(parsed_file_url.path, 'r') as f:
-                    provider_ip_space_data = json.load(f)
-            except FileNotFoundError:
-                raise WhoHostsException(
-                    f"Could not parse provider space file url '{provider_file_url}'. File '{parsed_file_url.path}' "
-                    f"does not exist at '{os.getcwd()}'. Bailing.")
-            except Exception as e:
-                raise WhoHostsException(
-                    f"Could not load provider space file url '{provider_file_url}'. "
-                    f"Exception message is '{e}' Bailing.")
-        else:
-            raise WhoHostsException(
-                f"Could not load provider space file url '{provider_file_url}'. Scheme isn't "
-                f"supported '{parsed_file_url.scheme}' Bailing.")
+    provider_file_url = os.environ['CLOUDPROVIDER_IP_SPACE_FILE']
+    logging.info(f"Loading cloud provider IP space from '{provider_file_url}'")
 
-    except Exception as e:
-        raise WhoHostsException(
-            f"Could not parse provider space file url '{provider_file_url}'. Exception message is '{e}' Bailing.")
+    parsed_file_url = urllib.parse.urlparse(provider_file_url)
 
-    try:
-        jsonschema.validate(provider_ip_space_data, provider_ip_space_jsonschema)
-    except jsonschema.exceptions.ValidationError as jve:
-        raise WhoHostsException(
-            f"Could not validate provider space data in '{provider_file_url}'. Validation problem is '{jve}' Bailing.")
+    if parsed_file_url.scheme == 'file':
+        with open(parsed_file_url.path, 'r') as f:
+            provider_ip_space_data = json.load(f)
+    elif parsed_file_url.scheme == 's3':
+        if s3fs_client is None:
+            raise WhoHostsException("Cloud provider IP space file is set to be from s3 but s3 client not configured")
+        with s3fs_client.open(parsed_file_url.path, 'r') as f:
+            provider_ip_space_data = json.load(f)
+
+    else:
+        raise WhoHostsException(f"Cloud provider IP space file schema '{parsed_file_url.scheme}' not supported")
+
+    jsonschema.validate(provider_ip_space_data, provider_ip_space_jsonschema)
 
     cloud_providers_ip_space = provider_ip_space_data
 
@@ -154,16 +124,25 @@ def load_cloud_provider_ip_space_from_file(provider_file_url):
         app.config['gui_provider_table'][cloud_provider] = provider_info["meta"]["ui_description"]
 
 
-load_cloud_provider_ip_space_from_file("file:../provider_ip_space.json")
+s3fs_client=None
+if os.getenv("CLOUDCUBE_URL", None) is not None:
+    logging.info("Setting up s3fs client with CloudCube info")
+    os.environ["AWS_ACCESS_KEY_ID"] = os.getenv("CLOUDCUBE_ACCESS_KEY_ID")
+    os.environ["AWS_SECRET_ACCESS_KEY"] = os.getenv("CLOUDCUBE_SECRET_ACCESS_KEY")
+    s3fs_client = s3fs.S3FileSystem(anon=False)
 
-if os.environ.get(ENVVAR_REDIS_HOST_NAME, None) is not None:
-    r = redis.Redis(host='localhost',
-                    port=os.environ.get(ENVVAR_REDIS_HOST_PORT, 6379),
-                    db=os.environ.get(ENVVAR_REDIS_DB_ID, 0))
+if os.environ.get(ENV_VAR_REDIS_URL, None) is not None:
+    redis_url = urllib.parse.urlparse(os.environ.get(ENV_VAR_REDIS_URL))
+    app.logger.info(f"Setting up to use redis cache at {redis_url.hostname}")
+    r = redis.Redis(host=str(redis_url.hostname),
+                    port=redis_url.port,
+                    password=redis_url.password)
     cache = CacheIfCacheCan(r)
 else:
+    app.logger.info(f"Environment variable '{ENV_VAR_REDIS_URL}' not set so not using redis caching")
     cache = CacheIfCacheCan(None)
 
+load_cloud_provider_ip_space_from_file()
 
 @app.route('/css/<path:path>')
 def send_css(path):

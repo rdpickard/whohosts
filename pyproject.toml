@@ -16,6 +16,7 @@ netaddr = "^0.8.0"
 dnspython = "^2.2.1"
 arrow = "^1.2.2"
 bs4 = "^0.0.1"
+s3fs = "^2022.7.1"
 
 [tool.poetry.dev-dependencies]
 

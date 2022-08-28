@@ -1,8 +1,36 @@
 import json
 import logging
+import json
+import logging
+import sys
+import urllib.parse
+import os
 
 import requests
 import arrow
+import jsonschema
+import s3fs
+
+
+class WhoHostsGetProviderIPSpaceException(Exception):
+    pass
+
+
+logging.basicConfig(format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s", level=logging.DEBUG)
+
+
+s3fs_client=None
+if os.getenv("CLOUDCUBE_URL", None) is not None:
+    logging.info("Setting up s3fs client with CloudCube info")
+    os.environ["AWS_ACCESS_KEY_ID"] = os.getenv("CLOUDCUBE_ACCESS_KEY_ID")
+    os.environ["AWS_SECRET_ACCESS_KEY"] = os.getenv("CLOUDCUBE_SECRET_ACCESS_KEY")
+    s3fs_client = s3fs.S3FileSystem(anon=False)
+
+provider_ip_space_file_url = os.environ['CLOUDPROVIDER_IP_SPACE_FILE']
+
+logging.debug(f"provider_ip_space_file_url is '{provider_ip_space_file_url}'")
+
+PROVIDER_IP_SPACE_FILE_SCHEMA_PATH = "schemas/whohosts_provider_ip_space_schema.json"
 
 provider_space = dict()
 
@@ -49,5 +77,37 @@ else:
     for ipv6_prefix in aws_response.json()['ipv6_prefixes']:
         provider_space["providers"]["AWS"]['prefixes'].append(ipv6_prefix["ipv6_prefix"])
 
-with open('provider_ip_space.json', 'w') as f:
-    json.dump(provider_space, f)
+
+logging.debug(f"Loading provider IP space file schema file {PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}")
+try:
+    with open(PROVIDER_IP_SPACE_FILE_SCHEMA_PATH) as ip_space_schema_fp:
+        provider_ip_space_jsonschema = json.load(ip_space_schema_fp)
+except Exception as e:
+    logging.critical("Could not open or access provider IP space file schema file "
+                     "'{{PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}}' from '{os.getcwd()}'. Not going to write to provider "
+                     "ip space file '{provider_ip_space_file_url}'")
+    sys.exit(-1)
+
+
+logging.debug(f"Saving provider IP space data to '{provider_ip_space_file_url}'")
+
+jsonschema.validate(provider_space, provider_ip_space_jsonschema)
+
+provider_file_url = os.environ['CLOUDPROVIDER_IP_SPACE_FILE']
+logging.info(f"Loading cloud provider IP space from '{provider_file_url}'")
+
+parsed_file_url = urllib.parse.urlparse(provider_ip_space_file_url)
+
+if parsed_file_url.scheme == 'file':
+    with open(parsed_file_url.path, 'r') as f:
+        json.dump(provider_space, f)
+elif parsed_file_url.scheme == 's3':
+    if s3fs_client is None:
+        raise WhoHostsGetProviderIPSpaceException("Cloud provider IP space file is set to be from s3 but s3 client not configured")
+    with s3fs_client.open(parsed_file_url.path, 'w') as f:
+        json.dump(provider_space, f)
+
+else:
+    raise WhoHostsGetProviderIPSpaceException(f"Cloud provider IP space file schema '{parsed_file_url.scheme}' not supported")
+
+
