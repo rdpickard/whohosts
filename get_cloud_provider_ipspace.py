@@ -37,13 +37,31 @@ provider_space = dict()
 provider_space['date'] = str(arrow.now())
 provider_space["providers"] = dict()
 
+#FASTLY
+logging.info("Getting Fastly prefixes")
+fastly_ip_url = "https://api.fastly.com/public-ip-list"
+provider_space["providers"]["Fastly"] = dict()
+provider_space["providers"]["Fastly"]["from"] = fastly_ip_url
+fastly_ip_response = requests.get(fastly_ip_url)
+if fastly_ip_response.status_code != 200:
+    logging.error("Fastly response did not return 200")
+else:
+    try:
+        with open("schemas/cloudprovider_fastly_ip_space_schema.json") as f:
+            jsonschema.validate(fastly_ip_response.json(), json.load(f))
+    except jsonschema.exceptions.ValidationError as ve:
+        logging.error(f"Couldn't validate Fastly IP response from {fastly_ip_url}. Err is {ve}")
+    else:
+        provider_space["providers"]["Fastly"]["prefixes"] = fastly_ip_response.json()["addresses"] + \
+                                                                fastly_ip_response.json()["ipv6_addresses"]
+
 # CloudFlare
 logging.info("Getting CloudFlare prefixes")
 cf_ip_url = "https://api.cloudflare.com/client/v4/ips"
 provider_space["providers"]["CloudFlare"] = dict()
 provider_space["providers"]["CloudFlare"]["from"] = cf_ip_url
 
-cf_response = requests.get("https://api.cloudflare.com/client/v4/ips")
+cf_response = requests.get(cf_ip_url)
 if cf_response.status_code != 200:
     logging.error("CloudFlare response did not return 200")
 else:
@@ -120,7 +138,7 @@ logging.info(f"Loading cloud provider IP space from '{provider_file_url}'")
 parsed_file_url = urllib.parse.urlparse(provider_ip_space_file_url)
 
 if parsed_file_url.scheme == 'file':
-    with open(parsed_file_url.path, 'r') as f:
+    with open(parsed_file_url.path, 'w') as f:
         json.dump(provider_space, f)
 elif parsed_file_url.scheme == 's3':
     if s3fs_client is None:
