@@ -361,7 +361,7 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
                 raise WhoHostsException(
                     f"DNS resolution of {hostname} has CNAME but follow_cname not set to True. Bailing")
             else:
-                return resolve_host_ip_addresses(str(answers[0]), dns_server_ips, follow_cname=False)
+                return resolve_host_ip_addresses(str(answers[0]), dns_server_ips, follow_cname=True)
         except dns.resolver.NoAnswer:
             pass
 
