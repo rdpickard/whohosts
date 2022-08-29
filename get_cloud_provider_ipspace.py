@@ -104,8 +104,6 @@ logging.info(f"Loading cloud provider IP space from '{provider_file_url}'")
 
 parsed_file_url = urllib.parse.urlparse(provider_ip_space_file_url)
 
-sys.exit()
-
 if parsed_file_url.scheme == 'file':
     with open(parsed_file_url.path, 'r') as f:
         json.dump(provider_space, f)
