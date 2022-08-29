@@ -5,12 +5,29 @@ import logging
 import sys
 import urllib.parse
 import os
+import re
 
 import requests
 import arrow
 import jsonschema
 import s3fs
 
+
+def prefixes_for_asns(asns):
+
+    prefixes = []
+
+    for asn in asns:
+        asn = re.sub("^AS", "", asn, flags=re.IGNORECASE)
+        asn_query_url = f"https://stat.ripe.net/data/announced-prefixes/data.json?resource={asn}"
+        asn_response = requests.get(asn_query_url)
+        if asn_response.status_code != 200:
+            logging.error(f"Query for prefixes of ASN {asn} to {asn_query_url} returned status code {asn_response.status_code}. Expected 200. Skipping")
+            continue
+        for prefix in asn_response.json()["data"]["prefixes"]:
+            prefixes.append(prefix["prefix"])
+
+    return prefixes
 
 class WhoHostsGetProviderIPSpaceException(Exception):
     pass
@@ -36,6 +53,20 @@ provider_space = dict()
 
 provider_space['date'] = str(arrow.now())
 provider_space["providers"] = dict()
+
+#NAMECHEAP
+logging.info("Getting NameCheap prefixes")
+namecheap_asns = ["AS22612"]
+provider_space["providers"]["NameCheap"] = dict()
+provider_space["providers"]["NameCheap"]["from"] = ",".join(namecheap_asns)
+provider_space["providers"]["NameCheap"]["prefixes"] = prefixes_for_asns(namecheap_asns)
+
+#Digital ocean
+logging.info("Getting Digital Ocean prefixes")
+digitalocean_asns = ["AS14061"]
+provider_space["providers"]["Digital Ocean"] = dict()
+provider_space["providers"]["Digital Ocean"]["from"] = ",".join(digitalocean_asns)
+provider_space["providers"]["Digital Ocean"]["prefixes"] = prefixes_for_asns(digitalocean_asns)
 
 #FASTLY
 logging.info("Getting Fastly prefixes")
