@@ -410,10 +410,7 @@ def asn_info_for_ip(ipaddress):
 
         if len(ni_doc["data"]["asns"]) == 0:
             return None, None, None
-        if len(ni_doc["data"]["asns"]) > 1:
-            raise WhoHostsException(
-                f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned more than one ASN for IP '{ipaddress}'. "
-                f"ANSs -> {','.join(ni_doc['data']['asns'])}. Expected only one ASN. Bailing")
+
         if len(ni_doc["data"]["prefix"]) == 0:
             raise WhoHostsException(
                 f"RIPE ATLAS URL '{ripe_atlas_ni_url}' returned no prefix in ASN {ni_doc['data']['asns'][0]} for IP "
@@ -427,27 +424,29 @@ def asn_info_for_ip(ipaddress):
 
         cache.set(ni_cache_key, ni_doc, is_json=True)
 
-    asn = ni_doc["data"]["asns"][0]
     prefix = ni_doc["data"]["prefix"]
+    holders = []
 
-    as_cache_key = f"ripe_as-overview_{ipaddress}"
-    as_doc = cache.get(as_cache_key, is_json=True)
+    for asn in ni_doc["data"]["asns"]:
 
-    if as_doc is None:
+        as_cache_key = f"ripe_as-overview_{asn}"
+        as_doc = cache.get(as_cache_key, is_json=True)
 
-        ripe_atlas_as_url = f"https://stat.ripe.net/data/as-overview/data.json?resource={asn}"
-        ripe_atlas_as_response = requests.get(ripe_atlas_as_url)
-        if ripe_atlas_as_response.status_code != 200:
-            raise WhoHostsException(
-                f"Could not look up as overview info for ASN '{asn}' from RIPE ATLAS URL '{ripe_atlas_as_url}'. "
-                f"Request returned status {ripe_atlas_as_response.status_code}, expected 200. Bailing")
+        if as_doc is None:
 
-        as_doc = ripe_atlas_as_response.json()
-        cache.set(as_cache_key, as_doc, is_json=True)
+            ripe_atlas_as_url = f"https://stat.ripe.net/data/as-overview/data.json?resource={asn}"
+            ripe_atlas_as_response = requests.get(ripe_atlas_as_url)
+            if ripe_atlas_as_response.status_code != 200:
+                raise WhoHostsException(
+                    f"Could not look up as overview info for ASN '{asn}' from RIPE ATLAS URL '{ripe_atlas_as_url}'. "
+                    f"Request returned status {ripe_atlas_as_response.status_code}, expected 200. Bailing")
 
-    holder = as_doc["data"]["holder"]
+            as_doc = ripe_atlas_as_response.json()
+            cache.set(as_cache_key, as_doc, is_json=True)
 
-    return asn, prefix, holder
+        holders.append(as_doc["data"]["holder"])
+
+    return ",".join(ni_doc["data"]["asns"]), prefix, ",".join(holders)
 
 
 if __name__ == "__main__":
