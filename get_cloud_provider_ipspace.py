@@ -46,6 +46,8 @@ cf_response = requests.get("https://api.cloudflare.com/client/v4/ips")
 if cf_response.status_code != 200:
     logging.error("CloudFlare response did not return 200")
 else:
+    with open("schemas/cloudprovider_cloudflare_ip_space_schema.json") as f:
+        jsonschema.validate(cf_response.json(), json.load(f))
     provider_space["providers"]["CloudFlare"]["prefixes"] = cf_response.json()["result"]["ipv4_cidrs"]+cf_response.json()["result"]["ipv6_cidrs"]
 
 # Google
@@ -58,6 +60,8 @@ g_response = requests.get("https://www.gstatic.com/ipranges/goog.json")
 if g_response.status_code != 200:
     logging.error("Google response did not return 200")
 else:
+    with open("schemas/cloudprovider_google_ip_space_schema.json") as f:
+        jsonschema.validate(g_response.json(), json.load(f))
     provider_space["providers"]["Google"]["prefixes"] = [prefix for prefixes in list(map(lambda p: list(p.values()), g_response.json()['prefixes'])) for prefix in prefixes]
 
 
@@ -70,6 +74,8 @@ aws_response = requests.get("https://ip-ranges.amazonaws.com/ip-ranges.json")
 if aws_response.status_code != 200:
     logging.error("AWS response did not return 200")
 else:
+    with open("schemas/cloudprovider_aws_ip_space_schema.json") as f:
+        jsonschema.validate(aws_response.json(), json.load(f))
     provider_space["providers"]["AWS"]["prefixes"] = list()
 
     for prefix in aws_response.json()['prefixes']:
@@ -97,6 +103,8 @@ provider_file_url = os.environ['CLOUDPROVIDER_IP_SPACE_FILE']
 logging.info(f"Loading cloud provider IP space from '{provider_file_url}'")
 
 parsed_file_url = urllib.parse.urlparse(provider_ip_space_file_url)
+
+sys.exit()
 
 if parsed_file_url.scheme == 'file':
     with open(parsed_file_url.path, 'r') as f:
