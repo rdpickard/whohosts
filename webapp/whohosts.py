@@ -89,7 +89,10 @@ class CacheIfCacheCan:
 
 def load_cloud_provider_ip_space_from_file():
 
-    provider_file_url = os.environ['CLOUDPROVIDER_IP_SPACE_FILE']
+    provider_file_url = os.getenv('CLOUDPROVIDER_IP_SPACE_FILE', None)
+    if provider_file_url is None:
+        raise WhoHostsException("Can't load cloud provider ip space, environment var CLOUDPROVIDER_IP_SPACE_FILE not set")
+
     logging.info(f"Loading cloud provider IP space from '{provider_file_url}'")
 
     parsed_file_url = urllib.parse.urlparse(provider_file_url)
@@ -131,7 +134,7 @@ if os.getenv("CLOUDCUBE_URL", None) is not None:
     os.environ["AWS_SECRET_ACCESS_KEY"] = os.getenv("CLOUDCUBE_SECRET_ACCESS_KEY")
     s3fs_client = s3fs.S3FileSystem(anon=False)
 
-if os.environ.get(ENV_VAR_REDIS_URL, None) is not None:
+if os.getenv(ENV_VAR_REDIS_URL, None) is not None:
     redis_url = urllib.parse.urlparse(os.environ.get(ENV_VAR_REDIS_URL))
     app.logger.info(f"Setting up to use redis cache at {redis_url.hostname}")
     r = redis.Redis(host=str(redis_url.hostname),
