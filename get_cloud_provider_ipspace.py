@@ -39,49 +39,64 @@ provider_space["providers"] = dict()
 
 # CloudFlare
 logging.info("Getting CloudFlare prefixes")
+cf_ip_url = "https://api.cloudflare.com/client/v4/ips"
 provider_space["providers"]["CloudFlare"] = dict()
-provider_space["providers"]["CloudFlare"]["from"] = "https://api.cloudflare.com/client/v4/ips"
+provider_space["providers"]["CloudFlare"]["from"] = cf_ip_url
 
 cf_response = requests.get("https://api.cloudflare.com/client/v4/ips")
 if cf_response.status_code != 200:
     logging.error("CloudFlare response did not return 200")
 else:
-    with open("schemas/cloudprovider_cloudflare_ip_space_schema.json") as f:
-        jsonschema.validate(cf_response.json(), json.load(f))
-    provider_space["providers"]["CloudFlare"]["prefixes"] = cf_response.json()["result"]["ipv4_cidrs"]+cf_response.json()["result"]["ipv6_cidrs"]
+    try:
+        with open("schemas/cloudprovider_cloudflare_ip_space_schema.json") as f:
+            jsonschema.validate(cf_response.json(), json.load(f))
+    except jsonschema.exceptions.ValidationError as ve:
+        logging.error(f"Couldn't validate CloudFlare IP response from {cf_ip_url}. Err is {ve}")
+    else:
+        provider_space["providers"]["CloudFlare"]["prefixes"] = cf_response.json()["result"]["ipv4_cidrs"]+cf_response.json()["result"]["ipv6_cidrs"]
 
 # Google
 logging.info("Getting Google prefixes")
+google_ip_url = "https://www.gstatic.com/ipranges/goog.json"
 
 provider_space["providers"]["Google"] = dict()
-provider_space["providers"]["Google"]["from"] = "https://www.gstatic.com/ipranges/goog.json"
+provider_space["providers"]["Google"]["from"] = google_ip_url
 
-g_response = requests.get("https://www.gstatic.com/ipranges/goog.json")
+g_response = requests.get(google_ip_url)
 if g_response.status_code != 200:
     logging.error("Google response did not return 200")
 else:
-    with open("schemas/cloudprovider_google_ip_space_schema.json") as f:
-        jsonschema.validate(g_response.json(), json.load(f))
-    provider_space["providers"]["Google"]["prefixes"] = [prefix for prefixes in list(map(lambda p: list(p.values()), g_response.json()['prefixes'])) for prefix in prefixes]
+    try:
+        with open("schemas/cloudprovider_google_ip_space_schema.json") as f:
+            jsonschema.validate(g_response.json(), json.load(f))
+    except jsonschema.exceptions.ValidationError as ve:
+        logging.error(f"Couldn't validate Google IP response from {google_ip_url}. Err is {ve}")
+    else:
+        provider_space["providers"]["Google"]["prefixes"] = [prefix for prefixes in list(map(lambda p: list(p.values()), g_response.json()['prefixes'])) for prefix in prefixes]
 
 
 # AWS
 logging.info("Getting AWS prefixes")
 provider_space["providers"]["AWS"] = dict()
-provider_space["providers"]["AWS"]["from"] = "https://ip-ranges.amazonaws.com/ip-ranges.json"
+aws_ip_url = "https://ip-ranges.amazonaws.com/ip-ranges.json"
+provider_space["providers"]["AWS"]["from"] = aws_ip_url
 
-aws_response = requests.get("https://ip-ranges.amazonaws.com/ip-ranges.json")
+aws_response = requests.get(aws_ip_url)
 if aws_response.status_code != 200:
     logging.error("AWS response did not return 200")
 else:
-    with open("schemas/cloudprovider_aws_ip_space_schema.json") as f:
-        jsonschema.validate(aws_response.json(), json.load(f))
-    provider_space["providers"]["AWS"]["prefixes"] = list()
+    try:
+        with open("schemas/cloudprovider_aws_ip_space_schema.json") as f:
+            jsonschema.validate(aws_response.json(), json.load(f))
+    except jsonschema.exceptions.ValidationError as ve:
+        logging.error(f"Couldn't validate AWS IP response from {aws_ip_url}. Err is {ve}")
+    else:
+        provider_space["providers"]["AWS"]["prefixes"] = list()
 
-    for prefix in aws_response.json()['prefixes']:
-        provider_space["providers"]["AWS"]["prefixes"].append(prefix["ip_prefix"])
-    for ipv6_prefix in aws_response.json()['ipv6_prefixes']:
-        provider_space["providers"]["AWS"]['prefixes'].append(ipv6_prefix["ipv6_prefix"])
+        for prefix in aws_response.json()['prefixes']:
+            provider_space["providers"]["AWS"]["prefixes"].append(prefix["ip_prefix"])
+        for ipv6_prefix in aws_response.json()['ipv6_prefixes']:
+            provider_space["providers"]["AWS"]['prefixes'].append(ipv6_prefix["ipv6_prefix"])
 
 
 logging.debug(f"Loading provider IP space file schema file {PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}")
