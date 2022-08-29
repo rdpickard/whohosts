@@ -1,0 +1,28 @@
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CloudFlare IP space API endpoint schema",
+  "type": "object",
+  "properties": {
+    "result": {
+      "type": "object",
+      "properties": {
+        "ipv4_cidrs": {"type": "array", "items":  {"type":  "string"}},
+        "ipv6_cidrs": {"type": "array", "items":  {"type":  "string"}}
+      },
+      "required": ["ipv4_cidrs", "ipv6_cidrs" ]
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array"
+    },
+    "messages": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}

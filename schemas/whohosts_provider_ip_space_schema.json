@@ -1,0 +1,30 @@
+{
+    "$id": "https://example.com/person.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Cloud Provider IP Space File",
+    "type": "object",
+    "properties": {
+        "date": {
+            "type": "string"
+        },
+        "providers": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "from": {"type": "string"},
+                    "prefixes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["from", "prefixes"],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": ["date", "providers"],
+    "additionalProperties": false
+}

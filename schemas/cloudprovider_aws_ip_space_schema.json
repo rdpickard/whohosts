@@ -1,0 +1,42 @@
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AWS IP space API endpoint schema",
+  "type": "object",
+  "properties": {
+    "prefixes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ip_prefix": {
+            "type": "string"
+          }
+        },
+        "required": ["ip_prefix"]
+      }
+    },
+    "ipv6_prefixes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ipv6_prefix": {
+            "type": "string"
+          }
+        },
+        "required": ["ipv6_prefix"]
+      }
+    },
+    "syncToken": {
+      "type": "string"
+    },
+    "createDate": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "prefixes",
+    "ipv6_prefixes"
+  ]
+}

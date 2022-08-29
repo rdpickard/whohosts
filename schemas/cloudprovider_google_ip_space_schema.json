@@ -1,0 +1,43 @@
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Google IP space API endpoint schema",
+  "type": "object",
+  "properties": {
+    "prefixes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ipv4Prefix": {
+            "type": "string"
+          },
+          "ipv6Prefix": {
+            "type": "string"
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "ipv4Prefix"
+            ]
+          },
+          {
+            "required": [
+              "ipv6Prefix"
+            ]
+          }
+        ]
+      }
+    },
+    "syncToken": {
+      "type": "string"
+    },
+    "creationTime": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "prefixes"
+  ]
+}
