@@ -258,20 +258,21 @@ def lookup(lookup_target_list):
     for lookup_target in lookup_targets:
 
         ip_info = None
+        dns_indirection = None
 
         if re.match(hostname_regex_compiled, lookup_target):
             if dns_query_all_servers and dns_servers is not None:
                 for dns_server in dns_servers:
-                    c_ip_info = resolve_host_ip_addresses(lookup_target, [dns_server], True)
+                    c_ip_info, dns_indirection = resolve_host_ip_addresses(lookup_target, [dns_server], True)
                     if c_ip_info is not None:
                         if ip_info is None:
                             ip_info = []
                         ip_info = c_ip_info + ip_info
             else:
-                ip_info = resolve_host_ip_addresses(lookup_target, dns_servers, True)
-            hostname = lookup_target
+                ip_info, dns_indirection = resolve_host_ip_addresses(lookup_target, dns_servers, True)
+                hostname = lookup_target
         elif re.match(ip_regex_complied, lookup_target):
-            ip_info = [{"ip_address": lookup_target, "dns_responder": None}]
+            ip_info = [{"ip_address": lookup_target, "dns_responder": None, "dns_indirection": None}]
             hostname = lookup_target
         else:
             return_message = f"Can't parse target '{lookup_target}'. Must be a hostname, IPv4 or IPv6 address", 406
@@ -290,19 +291,8 @@ def lookup(lookup_target_list):
 
             for ip_dict in ip_info:
 
-                ip_details = dict()
                 ipaddress = netaddr.IPAddress(ip_dict["ip_address"])
-                ip_details["ip_address"] = str(ipaddress)
-                ip_details["dns_responder"] = ip_dict["dns_responder"]
-
-                asn, prefix, holder = asn_info_for_ip(str(ipaddress))
-                ip_details["asn"] = asn
-                ip_details["as_prefix"] = prefix
-                ip_details["as_holder"] = holder
-
-                ip_details["cloud_provider"] = None
-                ip_details["cloud_provider_prefix"] = None
-
+                asn_prefix, asns_and_holders = asn_info_for_ip(str(ipaddress))
                 cloud_providers = []
 
                 for cloud_provider, provider_info in app.config['cloud_providers_ip_space']["providers"].items():
@@ -311,14 +301,26 @@ def lookup(lookup_target_list):
                         if ipaddress in provider_ipnetwork:
                             cloud_providers.append((cloud_provider, str(provider_ipnetwork)))
 
-                if len(cloud_providers) > 1:
-                    logging.warning(f"more than one cloud provider for {hostname}")
+                if len(cloud_providers) == 0:
+                    cloud_providers.append((None, None))
 
-                for cloud_provider in cloud_providers:
-                    ip_details["cloud_provider"] = cloud_provider[0]
-                    ip_details["cloud_provider_prefix"] = cloud_provider[1]
+                for asn_and_holder in asns_and_holders:
+                    for cloud_provider in cloud_providers:
 
-                hosting_table[hostname]["ip_info"].append(ip_details)
+                        ip_details = dict()
+                        ip_details["ip_address"] = str(ipaddress)
+                        ip_details["dns_responder"] = ip_dict["dns_responder"]
+
+                        ip_details["asn"] = asn_and_holder[0]
+                        ip_details["as_prefix"] = asn_prefix
+                        ip_details["as_holder"] = asn_and_holder[1]
+
+                        ip_details["cloud_provider"] = cloud_provider[0]
+                        ip_details["cloud_provider_prefix"] = cloud_provider[1]
+
+                        ip_details["dns_indirection"] = dns_indirection
+
+                        hosting_table[hostname]["ip_info"].append(ip_details)
 
     if return_json:
         return hosting_table
@@ -342,7 +344,7 @@ def look_for_ip_in_provider_space(ip):
     return provider_tuples
 
 
-def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
+def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True, resolve_dns_indirection=None):
     if dns_server_ips is None or len(dns_server_ips) == 0:
         dns_resolver = dns.resolver.Resolver()
     else:
@@ -363,7 +365,10 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
                 raise WhoHostsException(
                     f"DNS resolution of {hostname} has CNAME but follow_cname not set to True. Bailing")
             else:
-                return resolve_host_ip_addresses(str(answers[0]), dns_server_ips, follow_cname=True)
+                if resolve_dns_indirection is None:
+                    resolve_dns_indirection = []
+                resolve_dns_indirection.append((hostname, "CNAME", (str(answers[0]))))
+                return resolve_host_ip_addresses(str(answers[0]), dns_server_ips, follow_cname=True, resolve_dns_indirection=resolve_dns_indirection)
         except dns.resolver.NoAnswer:
             pass
 
@@ -390,7 +395,7 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True):
     except dns.resolver.NXDOMAIN:
         return None
 
-    return all_ips
+    return all_ips, resolve_dns_indirection
 
 
 def asn_info_for_ip(ipaddress):
@@ -428,6 +433,7 @@ def asn_info_for_ip(ipaddress):
 
     prefix = ni_doc["data"]["prefix"]
     holders = []
+    asns_and_holders = []
 
     for asn in ni_doc["data"]["asns"]:
 
@@ -446,9 +452,10 @@ def asn_info_for_ip(ipaddress):
             as_doc = ripe_atlas_as_response.json()
             cache.set(as_cache_key, as_doc, is_json=True)
 
+        asns_and_holders.append((asn, as_doc["data"]["holder"]))
         holders.append(as_doc["data"]["holder"])
 
-    return ",".join(ni_doc["data"]["asns"]), prefix, ",".join(holders)
+    return prefix, asns_and_holders
 
 
 ##########
