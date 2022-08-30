@@ -3,9 +3,43 @@
 {% block content %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
+    <div class=" ui form">
+        <div class="field">
+        <textarea rows=2 oninput="auto_grow(this)" style="color: green;font-size: large" placeholder="Space seperated list of hostnames"
+               id="whohosts_hostnames">
+        </textarea>
+        </div>
+    </div>
+    <button class="ui button green fluid" id="whohosts_button">Who hosts</button>
+
+
+    <div class="ui accordion">
+        <div class=" title" id="show_more_settings">
+            <i class="dropdown icon"></i>
+            More settings
+        </div>
+        <div class=" content">
+
+            <div class="field">
+                <div class="ui labeled input fluid">
+                    <div class="ui label">
+                        DNS Server IPs
+                    </div>
+                    <input type="text" placeholder="(use default)" value="{{ dns_servers }}" id="dns_servers">
+                </div>
+            </div>
+            <br>
+            <div class="ui checkbox">
+                <input type="checkbox" id="dns_query_all_servers" {% if dns_query_all_servers %} checked {% endif %}>
+                <label>Query all DNS servers, not just first response</label>
+            </div>
+            <br>
+            <br>
+        </div>
+    </div>
+
     <br>
     <div class="ui labeled button" tabindex="0">
-
         <div class="ui teal right pointing label">(Cloud Provider)</div>
         <div class="ui basic blue right pointing label"> (AS Holder)</div>
         <div class="ui red right pointing button label"> (IP address)</div>
@@ -15,14 +49,14 @@
     <br>
 
     {% if hosting_table is defined %}
-        <div class="ui relaxed divided list">
+        <div class="ui relaxed  list">
 
         {% for hostname, host_details in hosting_table.items() %}
             <div class="item">
-                    <div class="ui huge header green" style="font-family: monospace">{{ hostname }}</div>
-                    <div class="meta">
+                    <div class="ui labeled" tabindex="0">
+                        <div class="ui huge basic green label" style="font-family: monospace">{{ hostname }}</div>
                     </div>
-                    <div class="ui relaxed divided list">
+                    <div class="ui relaxed  list">
                         {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
                             {% for ip_info in host_details['ip_info'] %}
                                 <div class="item">

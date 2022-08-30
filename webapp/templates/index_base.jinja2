@@ -36,39 +36,6 @@
 
     <br>
 
-
-
-
-        <div class=" ui big fluid action input">
-        <input type="text" style="color: green" placeholder="Space seperated list of hostnames"
-               id="whohosts_hostnames"/>
-        <button class="ui button green" id="whohosts_button">Who hosts</button>
-    </div>
-    <div class="ui accordion">
-        <div class=" title" id="show_more_settings">
-            <i class="dropdown icon"></i>
-            More settings
-        </div>
-        <div class=" content">
-
-            <div class="field">
-                <div class="ui labeled input fluid">
-                    <div class="ui label">
-                        DNS Server IPs
-                    </div>
-                    <input type="text" placeholder="(use default)" value="{{ dns_servers }}" id="dns_servers">
-                </div>
-            </div>
-            <br>
-            <div class="ui checkbox">
-                <input type="checkbox" id="dns_query_all_servers" {% if dns_query_all_servers %} checked {% endif %}>
-                <label>Query all DNS servers, not just first response</label>
-            </div>
-            <br>
-            <br>
-        </div>
-    </div>
-
     {% block content %}
     {% endblock %}
 
@@ -108,6 +75,11 @@
 </div>
 
 <script>
+
+    function auto_grow(element) {
+    element.style.height = "5px";
+    element.style.height = (element.scrollHeight)+"px";
+}
     $('.ui.accordion').accordion();
 
     $(document).ready(function () {

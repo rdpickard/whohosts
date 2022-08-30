@@ -2,22 +2,56 @@
 
 {% block content %}
 
+    <div class=" ui big fluid action input">
+        <input type="text" style="color: green" placeholder="Space seperated list of hostnames"
+               id="whohosts_hostnames"/>
+        <button class="ui button green" id="whohosts_button">Who hosts</button>
+    </div>
+
+    <div class="ui accordion">
+        <div class=" title" id="show_more_settings">
+            <i class="dropdown icon"></i>
+            More settings
+        </div>
+        <div class=" content">
+
+            <div class="field">
+                <div class="ui labeled input fluid">
+                    <div class="ui label">
+                        DNS Server IPs
+                    </div>
+                    <input type="text" placeholder="(use default)" value="{{ dns_servers }}" id="dns_servers">
+                </div>
+            </div>
+            <br>
+            <div class="ui checkbox">
+                <input type="checkbox" id="dns_query_all_servers" {% if dns_query_all_servers %} checked {% endif %}>
+                <label>Query all DNS servers, not just first response</label>
+            </div>
+            <br>
+            <br>
+        </div>
+    </div>
+
     <table class="ui celled padded table">
         <thead>
         <tr>
-            <th class="single line">Hostname</th>
-            <th>IP Address</th>
-            <th>DNS Responder</th>
-            <th>Cloud Provider</th>
-            <th>Cloud Provider Range</th>
-            <th>ASN</th>
-            <th>AS Prefix</th>
-            <th>AS Holder</th>
+            <th class="single line" style="color: grey">Hostname</th>
+            <th style="color: red">IP Address</th>
+            <th style="color: purple">DNS Responder</th>
+            <th class="ui" style="color: teal">Cloud Provider</th>
+            <th style="color: teal">Cloud Provider Range</th>
+            <th style="color: blue">ASN</th>
+            <th style="color: blue">AS Prefix</th>
+            <th style="color: blue">AS Holder</th>
         </tr>
         </thead>
         <tbody>
         {% if hosting_table is defined %}
             {% for hostname, host_details in hosting_table.items() %}
+                <tr>
+                  <td colspan="8"><div class="ui basic green label large">{{ hostname }}</div></td>
+                </tr>
                 {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
                     {% for ip_info in host_details['ip_info'] %}
                         <tr>
