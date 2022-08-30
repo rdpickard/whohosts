@@ -15,9 +15,17 @@ import redis
 import jsonschema
 import s3fs
 
-app = Flask(__name__)
-app.logger.setLevel(logging.DEBUG)
-Mobility(app)
+# environment vars, not all are required to be set
+ENV_VAR_NAME_CLOUDPROVIDER_IP_SPACE_FILE = "CLOUDPROVIDER_IP_SPACE_FILE"
+ENV_VAR_NAME_REDIS_URL = "REDISCLOUD_URL"
+ENV_VAR_NAME_CLOUDCUBE_URL = "CLOUDCUBE_URL"
+ENV_VAR_NAME_CLOUDCUBE_ACCESS_KEY_ID = "CLOUDCUBE_ACCESS_KEY_ID"
+ENV_VAR_NAME_CLOUDCUBE_SECRET_ACCESS_KEY = "CLOUDCUBE_SECRET_ACCESS_KEY"
+ENV_VAR_NAME_LOGLEVEL = "LOGLEVEL"
+
+required_env_vars = [ENV_VAR_NAME_CLOUDPROVIDER_IP_SPACE_FILE]
+
+PROVIDER_IP_SPACE_FILE_SCHEMA_PATH = "../schemas/whohosts_provider_ip_space_schema.json"
 
 hostname_regex = r'(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)'
 hostname_regex_compiled = re.compile(hostname_regex)
@@ -41,17 +49,9 @@ ip_regex = r'((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9
            r'1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))'
 ip_regex_complied = re.compile(ip_regex)
 
-ENV_VAR_REDIS_URL = "REDISCLOUD_URL"
-PROVIDER_IP_SPACE_FILE_SCHEMA_PATH = "../schemas/whohosts_provider_ip_space_schema.json"
-
-app.logger.debug(f"Loading provider IP space file schema file {PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}")
-try:
-    with open(PROVIDER_IP_SPACE_FILE_SCHEMA_PATH) as ip_space_schema_fp:
-        provider_ip_space_jsonschema = json.load(ip_space_schema_fp)
-except Exception as e:
-    app.logger.critical(f"Could not open or access provider IP space file schema file "
-                        f"'{PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}' from '{os.getcwd()}'. Can't start. Exiting")
-    sys.exit(-1)
+app = Flask(__name__)
+app.logger.setLevel(os.getenv(ENV_VAR_NAME_LOGLEVEL, logging.INFO))
+Mobility(app)
 
 
 class WhoHostsException(Exception):
@@ -59,6 +59,11 @@ class WhoHostsException(Exception):
 
 
 class CacheIfCacheCan:
+    """
+    A wrapper around getting/setting to a redis back end, if configured. A convenience class so code doesn't have to
+    repeat boilerplate logic to check if redis has been configured or not. If redis isn't configured getting will
+    always return None and setting will just be ignored
+    """
     _redis_interface = None
 
     def __init__(self, redis_interface):
@@ -90,10 +95,17 @@ class CacheIfCacheCan:
 
 
 def load_cloud_provider_ip_space_from_file():
+    """
+    Load cloud provider ip space from the location specified by ENV_VAR_NAME_CLOUDPROVIDER_IP_SPACE_FILE into
+    app config variable 'cloud_providers_ip_space'. Also adds 'gui_provider_table' to app config for rendering
+    jinja templates with cloud provider information
+    :return:
+    """
 
-    provider_file_url = os.getenv('CLOUDPROVIDER_IP_SPACE_FILE', None)
+    provider_file_url = os.getenv(ENV_VAR_NAME_CLOUDPROVIDER_IP_SPACE_FILE, None)
     if provider_file_url is None:
-        raise WhoHostsException("Can't load cloud provider ip space, environment var CLOUDPROVIDER_IP_SPACE_FILE not set")
+        raise WhoHostsException("Can't load cloud provider ip space, environment "
+                                f"var {ENV_VAR_NAME_CLOUDPROVIDER_IP_SPACE_FILE} not set")
 
     logging.info(f"Loading cloud provider IP space from '{provider_file_url}'")
 
@@ -128,26 +140,6 @@ def load_cloud_provider_ip_space_from_file():
     for cloud_provider, provider_info in app.config['cloud_providers_ip_space']["providers"].items():
         app.config['gui_provider_table'][cloud_provider] = provider_info["meta"]["ui_description"]
 
-
-s3fs_client=None
-if os.getenv("CLOUDCUBE_URL", None) is not None:
-    logging.info("Setting up s3fs client with CloudCube info")
-    os.environ["AWS_ACCESS_KEY_ID"] = os.getenv("CLOUDCUBE_ACCESS_KEY_ID")
-    os.environ["AWS_SECRET_ACCESS_KEY"] = os.getenv("CLOUDCUBE_SECRET_ACCESS_KEY")
-    s3fs_client = s3fs.S3FileSystem(anon=False)
-
-if os.getenv(ENV_VAR_REDIS_URL, None) is not None:
-    redis_url = urllib.parse.urlparse(os.environ.get(ENV_VAR_REDIS_URL))
-    app.logger.info(f"Setting up to use redis cache at {redis_url.hostname}")
-    r = redis.Redis(host=str(redis_url.hostname),
-                    port=redis_url.port,
-                    password=redis_url.password)
-    cache = CacheIfCacheCan(r)
-else:
-    app.logger.info(f"Environment variable '{ENV_VAR_REDIS_URL}' not set so not using redis caching")
-    cache = CacheIfCacheCan(None)
-
-load_cloud_provider_ip_space_from_file()
 
 @app.route('/css/<path:path>')
 def send_css(path):
@@ -457,6 +449,48 @@ def asn_info_for_ip(ipaddress):
         holders.append(as_doc["data"]["holder"])
 
     return ",".join(ni_doc["data"]["asns"]), prefix, ",".join(holders)
+
+
+##########
+
+# Make sure required env vars are set
+for required_env_var in required_env_vars:
+    if os.getenv(required_env_var, None) is None:
+        logging.critical(f"Required environment variable '{required_env_var}' not set. Exiting")
+        sys.exit(-1)
+
+# Load the schema for the cloud ip space provider data from its file
+try:
+    with open(PROVIDER_IP_SPACE_FILE_SCHEMA_PATH) as ip_space_schema_fp:
+        app.logger.debug(f"Loading provider IP space file schema file {PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}")
+        provider_ip_space_jsonschema = json.load(ip_space_schema_fp)
+except Exception as e:
+    app.logger.critical(f"Could not open or access provider IP space file schema file "
+                        f"'{PROVIDER_IP_SPACE_FILE_SCHEMA_PATH}' from '{os.getcwd()}'. Can't start. Exiting")
+    sys.exit(-1)
+
+# If CloudCube (heroku add-on) is configured use s3 for the cloud ip space provider data
+s3fs_client = None
+if os.getenv(ENV_VAR_NAME_CLOUDCUBE_URL, None) is not None:
+    logging.info("Setting up s3fs client with CloudCube info")
+    os.environ["AWS_ACCESS_KEY_ID"] = os.getenv(ENV_VAR_NAME_CLOUDCUBE_ACCESS_KEY_ID)
+    os.environ["AWS_SECRET_ACCESS_KEY"] = os.getenv(ENV_VAR_NAME_CLOUDCUBE_SECRET_ACCESS_KEY)
+    s3fs_client = s3fs.S3FileSystem(anon=False)
+
+# If redis is configured set up "cache" to use it
+if os.getenv(ENV_VAR_NAME_REDIS_URL, None) is not None:
+    redis_url = urllib.parse.urlparse(os.environ.get(ENV_VAR_NAME_REDIS_URL))
+    app.logger.info(f"Setting up to use redis cache at {redis_url.hostname}")
+    r = redis.Redis(host=str(redis_url.hostname),
+                    port=redis_url.port,
+                    password=redis_url.password)
+    cache = CacheIfCacheCan(r)
+else:
+    app.logger.info(f"Environment variable '{ENV_VAR_NAME_REDIS_URL}' not set so not using redis caching")
+    cache = CacheIfCacheCan(None)
+
+# Load the provider ip infor before processing requests
+load_cloud_provider_ip_space_from_file()
 
 
 if __name__ == "__main__":
