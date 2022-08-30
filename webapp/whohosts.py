@@ -7,6 +7,7 @@ import sys
 
 import flask
 from flask import Flask, request, jsonify
+from flask_mobility import Mobility
 import netaddr
 import dns.resolver
 import requests
@@ -16,6 +17,7 @@ import s3fs
 
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
+Mobility(app)
 
 hostname_regex = r'(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)'
 hostname_regex_compiled = re.compile(hostname_regex)
@@ -202,13 +204,21 @@ def provider(provider_name):
 @app.route("/index.html")
 @app.route("/index.htm")
 def default_page():
-    return flask.render_template("index.jinja2", providers_table=app.config['gui_provider_table'])
+    if flask.request.MOBILE:
+        return flask.render_template("index_mobile.jinja2", providers_table=app.config['gui_provider_table'])
+    else:
+        return flask.render_template("index.jinja2", providers_table=app.config['gui_provider_table'])
 
 
 @app.route("/<lookup_target_list>")
 def lookup(lookup_target_list):
 
     hosting_table = dict()
+
+    if flask.request.MOBILE:
+        template = "index_mobile.jinja2"
+    else:
+        template = "index.jinja2"
 
     if flask.request.content_type is not None and flask.request.content_type.startswith('application/json'):
         return_json = True
@@ -222,7 +232,7 @@ def lookup(lookup_target_list):
         if return_json:
             return jsonify({"message": return_message}), 406
         else:
-            return flask.render_template("index.jinja2", error_message=return_message,
+            return flask.render_template(template, error_message=return_message,
                                          providers_table=app.config['gui_provider_table']), 406
 
     for lookup_target in lookup_targets:
@@ -231,7 +241,7 @@ def lookup(lookup_target_list):
             if return_json:
                 return jsonify({"message": return_message}), 406
             else:
-                return flask.render_template("index.jinja2", error_message=return_message,
+                return flask.render_template(template, error_message=return_message,
                                              providers_table=app.config['gui_provider_table']), 406
 
     dns_servers = None
@@ -243,7 +253,7 @@ def lookup(lookup_target_list):
                 bad_servers.append(dns_server)
         if len(bad_servers) > 0:
             bad_servers_list = ",".join(bad_servers)
-            return flask.render_template("index.jinja2",
+            return flask.render_template(template,
                                          error_message=f"DNS Servers must be IP addresses. Values "
                                                        f"{bad_servers_list} not usable",
                                          providers_table=app.config['gui_provider_table']), 406
@@ -276,7 +286,7 @@ def lookup(lookup_target_list):
             if return_json:
                 return jsonify({"message": return_message}), 406
             else:
-                return [flask.render_template("index.jinja2", error_message=return_message,
+                return [flask.render_template(template, error_message=return_message,
                                               providers_table=app.config['gui_provider_table']), 406]
 
         hosting_table[hostname] = dict()
@@ -321,7 +331,7 @@ def lookup(lookup_target_list):
     if return_json:
         return hosting_table
     else:
-        return flask.render_template("index.jinja2",
+        return flask.render_template(template,
                                      hosting_table=hosting_table,
                                      providers_table=app.config['gui_provider_table'],
                                      dns_servers=" ".join(dns_servers or []),

@@ -1,0 +1,55 @@
+{% extends 'index_base.jinja2' %}
+
+{% block content %}
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+    {% if hosting_table is defined %}
+        {% for hostname, host_details in hosting_table.items() %}
+            <div class="ui card fluid" style="background-color: #FFF1E5">
+                        <div class="content">
+                            <div class="huge header">{{ hostname }}</div>
+                            <div class="meta">
+                            </div>
+            {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
+                {% for ip_info in host_details['ip_info'] %}
+                    <div class="ui card fluid" style="background-color: #E5F3FF">
+                        <div class="content">
+                            <div class="medium header" style="font-family: monospace">{{ ip_info["ip_address"] }}</div>
+                            <div class="meta">
+                            </div>
+                            <div class="ui divided selection list">
+                                <div class="item">
+                                    <div class="ui purple horizontal label">DNS Responder</div>
+                                    {{ ip_info["dns_responder"] }}
+                                </div>
+                                <div class="item">
+                                    <div class="ui red horizontal label">Cloud Provider</div>
+                                    {{ ip_info["cloud_provider"] }}
+                                </div>
+                                <div class="item">
+                                    <div class="ui red horizontal label">Cloud Provider Prefix</div>
+                                    {{ ip_info["cloud_provider_prefix"] }}
+                                </div>
+                                <div class="item">
+                                    <div class="ui blue horizontal label">ASN</div>
+                                    {{ ip_info["asn"] }}
+                                </div>
+                                <div class="item">
+                                    <div class="ui blue horizontal label">AS Prefix</div>
+                                    {{ ip_info["as_prefix"] }}
+                                </div>
+                                <div class="item">
+                                    <div class="ui blue horizontal label">AS Holder</div>
+                                    {{ ip_info["as_holder"] }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="extra content">{{ hostname }}</div>
+                    </div>
+
+                {% endfor %}
+            {% endif %}
+                        </div></div>
+        {% endfor %}
+    {% endif %}
+{% endblock %}

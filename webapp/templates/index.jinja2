@@ -1,90 +1,6 @@
-<!doctype html>
-<head>
-    <title>WhoHosts</title>
-    <link href="css/semantic.min.css" rel="stylesheet">
-    <script src="js/jquery-3.4.1.min.js"></script>
-    <script src="js/semantic.min.js"></script>
-</head>
+{% extends 'index_base.jinja2' %}
 
-<body>
-
-<div class="ui container">
-
-    <br>
-    <br>
-
-    {% if error_message is defined and error_message is not none or error_message == "" %}
-        <div class="ui negative message">
-            <i class="close icon"></i>
-            <div class="header">
-                {{ error_message }}
-            </div>
-            {% if more_info_message is defined and more_info_message is not none %}
-                <p>{{ more_info_message }}</p>
-            {% endif %}
-        </div>
-    {% else %}
-    {% endif %}
-
-    <h1 class="ui header">Who Hosts</h1>
-
-    <div class="content">
-        Look up tool to see if a site is hosted on a public cloud provider by seeing if the DNS records for a host name
-        resolve to an IP space know to belong to a cloud provider. Results can also be returned as JSON, see <a
-            href="#json_section"> here</a>.
-    </div>
-
-    <br>
-
-
-    <div class=" ui big fluid action input">
-        <input type="text" style="color: green" placeholder="Space seperated list of hostnames"
-               id="whohosts_hostnames"/>
-        <button class="ui button green" id="whohosts_button">Who hosts</button>
-    </div>
-    <div class="ui accordion" >
-        <div class=" title" id="show_more_settings">
-            <i class="dropdown icon"></i>
-            More settings
-        </div>
-        <div class=" content">
-
-            <div class="field">
-                <div class="ui labeled input fluid">
-                    <div class="ui label">
-                        DNS Server IPs
-                    </div>
-                    <input type="text" placeholder="(use default)" value="{{ dns_servers }}" id="dns_servers">
-                </div>
-            </div>
-            <br>
-            <div class="ui checkbox">
-                <input type="checkbox" id="dns_query_all_servers" {% if dns_query_all_servers %} checked {% endif %}>
-                <label>Query all DNS servers, not just first response</label>
-            </div>
-            <br>
-            <br>
-        <!--
-            <div class="ui horizontal list">
-                <div class="item">
-                    <div class="ui label">Record Types</div>
-                </div>
-                <div class="item">
-                    <div class="ui checkbox">
-                        <input type="checkbox">
-                        <label>A</label>
-                    </div>
-                </div>
-                <div class="item">
-                    <div class="ui checkbox">
-                        <input type="checkbox">
-                        <label>AAAA</label>
-                    </div>
-                </div>
-            </div>
-            -->
-        </div>
-    </div>
+{% block content %}
 
     <table class="ui celled padded table">
         <thead>
@@ -104,21 +20,25 @@
             {% for hostname, host_details in hosting_table.items() %}
                 {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
                     {% for ip_info in host_details['ip_info'] %}
-                            <tr>
-                                <td> {{ hostname }} </td>
-                                <td> {{ ip_info["ip_address"] }} </td>
-                                <td> {{ ip_info["dns_responder"] }} </td>
-                                <td> {{ ip_info["cloud_provider"] }} </td>
-                                <td> {{ ip_info["cloud_provider_prefix"] }} </td>
-                                <td> {{ ip_info["asn"] }} </td>
-                                <td> {{ ip_info["as_prefix"] }} </td>
-                                <td> {{ ip_info["as_holder"] }} </td>
-                            </tr>
-                        {% endfor %}
-                    {% endif %}
+                        <tr>
+                            <td> {{ hostname }} </td>
+                            <td> {{ ip_info["ip_address"] }} </td>
+                            <td> {{ ip_info["dns_responder"] }} </td>
+                            <td> {{ ip_info["cloud_provider"] }} </td>
+                            <td> {{ ip_info["cloud_provider_prefix"] }} </td>
+                            <td> {{ ip_info["asn"] }} </td>
+                            <td> {{ ip_info["as_prefix"] }} </td>
+                            <td> {{ ip_info["as_holder"] }} </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
             {% endfor %}
         {% else %}
             <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -128,82 +48,4 @@
         </tbody>
     </table>
 
-    <h4 class="ui horizontal divider header" id="json_section">
-        JSON
-    </h4>
-    <div class="content">
-        Results can also be fetched as JSON. Example:<br><br>
-
-        <p style="font-family: monospace; font-weight: lighter" id="curl-example">
-        </p>
-    </div>
-
-    <h4 class="ui horizontal divider header" id="json_section">
-        Providers
-    </h4>
-    <div class="content">
-        List of currently checked cloud providers <br>
-        <div class="ui bulleted list">
-            {% if providers_table is defined %}
-                {% for provider_name, provider_info in providers_table.items() %}
-                    <div class="item"><a href="/provider/{{ provider_name }}">{{ provider_name }}</a>
-                        - {{ provider_info }}</div>
-                {% endfor %}
-            {% endif %}
-        </div>
-        <br>
-        ASN details provided by <a href="https://www.ripe.net/">Ripe</a>. Volunteer and <a
-            href="https://atlas.ripe.net/">help out with a probe</a>!
-    </div>
-    <h4 class="ui horizontal divider header" id="json_section">
-        DNS
-    </h4>
-    <br>
-    <br>
-    <br>
-</div>
-
-<script>
-    $('.ui.accordion').accordion();
-
-    $(document).ready(function () {
-        $("#curl-example").text("curl -H 'Content-Type: application/json' " + window.location.href)
-        lookup_targets = window.location.pathname.replace("/", "").split(",")
-        $('#whohosts_hostnames').val(lookup_targets.join(" "))
-
-        var arr = window.location.search.substring(1);
-        if (arr.length > 1 && arr[1] !== '') {
-            $("#show_more_settings").click()
-        }
-    });
-
-    $('#whohosts_hostnames').keypress(function (e) {
-        var key = e.which;
-        if (key == 13) {
-            $('#whohosts_button').click();
-            return false;
-        }
-    });
-
-    $("#whohosts_button").click(function () {
-        lookup_targets = $("#whohosts_hostnames").val().trim().replace(/\s\s+/g, ' ').replace(/\t/g, ' ').split(" ")
-
-        goto_url = window.location.protocol + "//" + window.location.host + "/" + lookup_targets.join(",")
-
-        params_dict = {}
-        if ($("#dns_servers").val().trim() != '') {
-            params_dict["dns_servers"] =  $("#dns_servers").val().split(" ").join(",")
-        }
-        if ($("#dns_query_all_servers").is(':checked') == true) {
-            params_dict["dns_query_all_servers"] =  $("#dns_query_all_servers").is(':checked')
-        }
-        if (Object.keys(params_dict).length > 0) {
-            goto_url = goto_url + "?" + $.param(params_dict)
-        }
-
-        window.location = goto_url
-    });
-
-</script>
-</body>
-
+{% endblock %}
