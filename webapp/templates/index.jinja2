@@ -36,14 +36,14 @@
     <table class="ui celled padded table">
         <thead>
         <tr>
-            <th class="single line" style="color: grey">Hostname</th>
-            <th style="color: red">IP Address</th>
-            <th style="color: purple">DNS Responder</th>
-            <th class="ui" style="color: teal">Cloud Provider</th>
-            <th style="color: teal">Cloud Provider Range</th>
-            <th style="color: blue">ASN</th>
-            <th style="color: blue">AS Prefix</th>
-            <th style="color: blue">AS Holder</th>
+            <th><div class="ui  label teal">Cloud Provider</div></th>
+            <th><div class="ui  label teal">Cloud Provider Range</th>
+            <th><div class="ui  label blue">AS Holder</th>
+            <th><div class="ui  label blue">ASN</th>
+            <th><div class="ui  label blue">AS Prefix</th>
+            <th><div class="ui label red">IP Address</th>
+            <th><div class="ui label purple">DNS Responder</th>
+            <th><div class="ui  label grey">Hostname</th>
         </tr>
         </thead>
         <tbody>
@@ -55,14 +55,14 @@
                 {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
                     {% for ip_info in host_details['ip_info'] %}
                         <tr>
-                            <td> {{ hostname }} </td>
-                            <td> {{ ip_info["ip_address"] }} </td>
-                            <td> {{ ip_info["dns_responder"] }} </td>
-                            <td> {{ ip_info["cloud_provider"] }} </td>
-                            <td> {{ ip_info["cloud_provider_prefix"] }} </td>
-                            <td> {{ ip_info["asn"] }} </td>
-                            <td> {{ ip_info["as_prefix"] }} </td>
-                            <td> {{ ip_info["as_holder"] }} </td>
+                            <td style="color: teal"> {% if ip_info["cloud_provider"] is not none%}{{ ip_info["cloud_provider"] }} {% else %} {% endif %}</td>
+                            <td style="color: teal"> {% if ip_info["cloud_provider_prefix"] is not none%}{{ ip_info["cloud_provider_prefix"] }} {% else %} {% endif %} </td>
+                            <td style="color: blue"> {{ ip_info["as_holder"] }} </td>
+                            <td style="color: blue"> {{ ip_info["asn"] }} </td>
+                            <td style="color: blue"> {{ ip_info["as_prefix"] }} </td>
+                            <td style="color: red"> {{ ip_info["ip_address"] }} </td>
+                            <td style="color: purple"> {{ ip_info["dns_responder"] }} </td>
+                            <td style="color: grey"> {{ hostname }} </td>
                         </tr>
                     {% endfor %}
                 {% endif %}
