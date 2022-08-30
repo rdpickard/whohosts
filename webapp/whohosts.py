@@ -260,6 +260,8 @@ def lookup(lookup_target_list):
         ip_info = None
         dns_indirection = None
 
+        hostname = lookup_target
+
         if re.match(hostname_regex_compiled, lookup_target):
             if dns_query_all_servers and dns_servers is not None:
                 for dns_server in dns_servers:
@@ -270,7 +272,6 @@ def lookup(lookup_target_list):
                         ip_info = c_ip_info + ip_info
             else:
                 ip_info, dns_indirection = resolve_host_ip_addresses(lookup_target, dns_servers, True)
-                hostname = lookup_target
         elif re.match(ip_regex_complied, lookup_target):
             ip_info = [{"ip_address": lookup_target, "dns_responder": None, "dns_indirection": None}]
             hostname = lookup_target
