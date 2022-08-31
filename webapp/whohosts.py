@@ -394,7 +394,7 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True, resol
             pass
 
     except dns.resolver.NXDOMAIN:
-        return None
+        return None, None
 
     return all_ips, resolve_dns_indirection
 
@@ -417,7 +417,7 @@ def asn_info_for_ip(ipaddress):
         ni_doc = ripe_atlas_ni_response.json()
 
         if len(ni_doc["data"]["asns"]) == 0:
-            return None, None, None
+            return None, None
 
         if len(ni_doc["data"]["prefix"]) == 0:
             raise WhoHostsException(
