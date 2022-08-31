@@ -217,6 +217,8 @@ def lookup(lookup_target_list):
     else:
         return_json = False
 
+    app.logger.info(f"Look up request for '{lookup_target_list}'")
+
     lookup_targets = lookup_target_list.split(",")
 
     if len(lookup_targets) > 5:
