@@ -397,6 +397,9 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True, resol
 
     except dns.resolver.NXDOMAIN:
         return None, None
+    except dns.resolver.LifetimeTimeout as lt:
+        logging.info(f"Request to DNS server timed out, returning None. err {lt}")
+        return None, None
 
     return all_ips, resolve_dns_indirection
 
