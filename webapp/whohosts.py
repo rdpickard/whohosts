@@ -4,7 +4,9 @@ import logging
 import os
 import urllib.parse
 import sys
+import datetime
 
+import arrow
 import flask
 from flask import Flask, request, jsonify
 from flask_mobility import Mobility
@@ -94,6 +96,16 @@ class CacheIfCacheCan:
                 self._redis_interface.set(key, value, timeout)
 
 
+def refresh_cloud_provider_ip_space():
+
+    loaded_cloud_ip_data_age_min = (arrow.utcnow() - app.config['cloud_providers_ip_space_date']) / datetime.timedelta(minutes=1)
+    if loaded_cloud_ip_data_age_min > 10:
+        app.logger.info("Refreshing cloud provider ip space")
+        load_cloud_provider_ip_space_from_file()
+    else:
+        app.logger.info(f"Not resloading age is {loaded_cloud_ip_data_age_min}")
+
+
 def load_cloud_provider_ip_space_from_file():
     """
     Load cloud provider ip space from the location specified by ENV_VAR_NAME_CLOUDPROVIDER_IP_SPACE_FILE into
@@ -135,6 +147,7 @@ def load_cloud_provider_ip_space_from_file():
             "ui_description"] = f"Across {len(cloud_provider_info['prefix_networks'])} known ranges"
 
     app.config['cloud_providers_ip_space'] = cloud_providers_ip_space
+    app.config['cloud_providers_ip_space_date'] = arrow.get(provider_ip_space_data["date"])
 
     app.config['gui_provider_table'] = dict()
     for cloud_provider, provider_info in app.config['cloud_providers_ip_space']["providers"].items():
@@ -204,6 +217,8 @@ def default_page():
 
 @app.route("/<lookup_target_list>")
 def lookup(lookup_target_list):
+
+    refresh_cloud_provider_ip_space()
 
     hosting_table = dict()
 
@@ -296,6 +311,16 @@ def lookup(lookup_target_list):
 
                 ipaddress = netaddr.IPAddress(ip_dict["ip_address"])
                 asn_prefix, asns_and_holders = asn_info_for_ip(str(ipaddress))
+
+                if asn_prefix is None or asns_and_holders is None:
+                    return_message = f"ASN lookup for IP address {str(ipaddress)} returned no ASNs!"
+                    logging.warning(return_message)
+                    if return_json:
+                        return jsonify({"message": return_message}), 406
+                    else:
+                        return [flask.render_template(template, error_message=return_message,
+                                                      providers_table=app.config['gui_provider_table']), 406]
+
                 cloud_providers = []
 
                 for cloud_provider, provider_info in app.config['cloud_providers_ip_space']["providers"].items():
@@ -400,6 +425,10 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True, resol
     except dns.resolver.LifetimeTimeout as lt:
         logging.info(f"Request to DNS server timed out, returning None. err {lt}")
         return None, None
+    except dns.resolver.NoNameservers as nns:
+        logging.info(f"Connection refused to nameserver {nns}")
+        return None, None
+
 
     return all_ips, resolve_dns_indirection
 
