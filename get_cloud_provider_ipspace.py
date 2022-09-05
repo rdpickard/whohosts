@@ -61,6 +61,13 @@ provider_space["providers"]["NameCheap"] = dict()
 provider_space["providers"]["NameCheap"]["from"] = ",".join(namecheap_asns)
 provider_space["providers"]["NameCheap"]["prefixes"] = prefixes_for_asns(namecheap_asns)
 
+#Single hop
+logging.info("Getting Singlehop prefixes")
+singlehop_asns = ["AS32475"]
+provider_space["providers"]["SingleHop"] = dict()
+provider_space["providers"]["SingleHop"]["from"] = ",".join(singlehop_asns)
+provider_space["providers"]["SingleHop"]["prefixes"] = prefixes_for_asns(singlehop_asns)
+
 #Digital ocean
 logging.info("Getting Digital Ocean prefixes")
 digitalocean_asns = ["AS14061"]
