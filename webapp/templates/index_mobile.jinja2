@@ -1,133 +1,141 @@
 {% extends 'index_base.jinja2' %}
 
 {% block content %}
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
-    <div class=" ui form">
-        <div class="field">
-        <textarea rows=2 oninput="auto_grow(this)" style="color: green;font-size: large" placeholder="Space seperated list of hostnames"
-               id="whohosts_hostnames">
+<div class=" ui form">
+    <div class="field">
+        <textarea rows=2 oninput="auto_grow(this)" style="color: green;font-size: large"
+                  placeholder="Space seperated list of hostnames"
+                  id="whohosts_hostnames">
         </textarea>
-        </div>
     </div>
-    <button class="ui button green fluid" id="whohosts_button">Who hosts</button>
+</div>
+<button class="ui button green fluid" id="whohosts_button">Who hosts</button>
 
 
-    <div class="ui accordion">
-        <div class=" title" id="show_more_settings">
-            <i class="dropdown icon"></i>
-            More settings
-        </div>
-        <div class=" content">
+<div class="ui accordion">
+    <div class=" title" id="show_more_settings">
+        <i class="dropdown icon"></i>
+        More settings
+    </div>
+    <div class=" content">
 
-            <div class="field">
-                <div class="ui labeled input fluid">
-                    <div class="ui label">
-                        DNS Server IPs
-                    </div>
-                    <input type="text" placeholder="(use default)" value="{{ dns_servers }}" id="dns_servers">
+        <div class="field">
+            <div class="ui labeled input fluid">
+                <div class="ui label">
+                    DNS Server IPs
                 </div>
+                <input type="text" placeholder="(use default)" value="{{ dns_servers }}" id="dns_servers">
             </div>
-            <br>
-            <div class="ui checkbox">
-                <input type="checkbox" id="dns_query_all_servers" {% if dns_query_all_servers %} checked {% endif %}>
-                <label>Query all DNS servers, not just first response</label>
-            </div>
-            <br>
-            <br>
         </div>
+        <br>
+        <div class="ui checkbox">
+            <input type="checkbox" id="dns_query_all_servers" {% if dns_query_all_servers %} checked {% endif %}>
+            <label>Query all DNS servers, not just first response</label>
+        </div>
+        <br>
+        <br>
     </div>
+</div>
 
-    <br>
-    <div class="ui labeled button" tabindex="0">
-        <div class="ui teal right pointing label">(Cloud Provider)</div>
-        <div class="ui basic blue right pointing label"> (AS Holder)</div>
-        <div class="ui red right pointing button label"> (IP address)</div>
-        <div class="ui grey button label"> (Host) </div>
-    </div>
-    <br>
-    <br>
+<br>
+<div class="ui labeled button" tabindex="0">
+    <div class="ui teal right pointing label">(Cloud Provider)</div>
+    <div class="ui basic blue right pointing label"> (AS Holder)</div>
+    <div class="ui red right pointing button label"> (IP address)</div>
+    <div class="ui grey button label"> (Host)</div>
+</div>
+<br>
+<br>
 
-    {% if hosting_table is defined %}
+{% if lookup_results is defined %}
+<div class="ui relaxed  list">
+    {% for lookup_target, hostname_lookup_details in lookup_results["data"].items() %}
+
+        <div class="item">
+        <div class="ui labeled" tabindex="0">
+            <div class="ui huge basic green label" style="font-family: monospace">{{ lookup_target }}</div>
+        </div>
         <div class="ui relaxed  list">
+            {% for hostname_lookup_detail in hostname_lookup_details %}
+                <div class="item">
+                    <br>
+                    <div class="medium header" style="font-family: monospace">
+                        <div class="ui labeled button" tabindex="0">
+                            {% if hostname_lookup_detail["ip_address"] is none %}
+                                <div class="ui yellow label">
+                                {{  hostname_lookup_detail["no_ip"] }}
+                                </div>
+                            {% else %}
+                                {% if hostname_lookup_detail["cloud_provider"] is not none %}
+                                    <div class="ui teal right pointing label">
+                                        {{ hostname_lookup_detail["cloud_provider"] }}
+                                    </div>
+                                {% endif %}
+                                <div class="ui basic blue right pointing label">
+                                    {{ hostname_lookup_detail["as_holder"] }}
+                                </div>
+                                <div class="ui red right pointing button label">
+                                    {{ hostname_lookup_detail["ip_address"] }}
+                                            {% for i in range(15-(hostname_lookup_detail["ip_address"]|length)) %}
+                                                &numsp;{% endfor %}
+                                </div>
+                                <div class="ui grey button label">
+                                    {{ lookup_target }}
+                                </div>
+                            {% endif %}
+                        </div>
 
-        {% for hostname, host_details in hosting_table.items() %}
-            <div class="item">
-                    <div class="ui labeled" tabindex="0">
-                        <div class="ui huge basic green label" style="font-family: monospace">{{ hostname }}</div>
-                    </div>
-                    <div class="ui relaxed  list">
-                        {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
-                            {% for ip_info in host_details['ip_info'] %}
-                                <div class="item">
-                                    <br>
-                                    <div class="medium header" style="font-family: monospace">
-                                        <div class="ui labeled button" tabindex="0">
-                                            {% if ip_info["cloud_provider"] is not none %}
-                                                <div class="ui teal right pointing label">
-                                                    {{ ip_info["cloud_provider"] }}
-                                                </div>
-                                            {% endif %}
-                                            <div class="ui basic blue right pointing label">
-                                                {{ ip_info["as_holder"] }}
-                                            </div>
-                                            <div class="ui red right pointing button label">
-                                                {{ ip_info["ip_address"] }}{% for i in range(15-(ip_info["ip_address"]|length)) %}&numsp;{% endfor %}
-                                            </div>
-                                            <div class="ui grey button label">
-                                                {{ hostname }}
-                                            </div>
+                        <div class="ui accordion">
+                            <div class=" title" id="show_more_{{ hostname_lookup_detail["ip_address"] }}">
+                            </div>
+                            <div class=" content">
+                                <div class="ui divided selection list">
+
+                                    <div class="item">
+                                        <div class="ui grey horizontal label">Hostname</div>
+                                        {{ lookup_target }}
+                                    </div>
+                                    <div class="item">
+                                        <div class="ui purple horizontal label">DNS Responder</div>
+                                        {{ hostname_lookup_detail["dns_responder"] }}
+                                    </div>
+                                    <div class="item">
+                                        <div class="ui red horizontal label">Address</div>
+                                        {{ hostname_lookup_detail["ip_address"] }}
+                                    </div>
+                                    <div class="item">
+                                        <div class="ui blue horizontal label">ASN</div>
+                                        {{ hostname_lookup_detail["asn"] }}
+                                    </div>
+                                    <div class="item">
+                                        <div class="ui blue horizontal label">AS Prefix</div>
+                                        {{ hostname_lookup_detail["as_prefix"] }}
+                                    </div>
+                                    <div class="item">
+                                        <div class="ui blue horizontal label">AS Holder</div>
+                                        {{ hostname_lookup_detail["as_holder"] }}
+                                    </div>
+                                    <div class="item">
+                                        <div class="ui teal horizontal label">Cloud Provider</div>
+                                        {{ hostname_lookup_detail["cloud_provider"] }}
+                                    </div>
+                                    <div class="item">
+                                        <div class="ui teal horizontal label">Cloud Provider Prefix
                                         </div>
-
-                                        <div class="ui accordion">
-                                            <div class=" title" id="show_more_{{ ip_info["ip_address"] }}">
-                                            </div>
-                                            <div class=" content">
-                                                <div class="ui divided selection list">
-
-                                                    <div class="item">
-                                                        <div class="ui grey horizontal label">Hostname</div>
-                                                            {{ hostname }}
-                                                    </div>
-                                                    <div class="item">
-                                                        <div class="ui purple horizontal label">DNS Responder</div>
-                                                        {{ ip_info["dns_responder"] }}
-                                                    </div>
-                                                    <div class="item">
-                                                        <div class="ui red horizontal label">Address</div>
-                                                        {{ ip_info["ip_address"] }}
-                                                    </div>
-                                                <div class="item">
-                                                        <div class="ui blue horizontal label">ASN</div>
-                                                        {{ ip_info["asn"] }}
-                                                    </div>
-                                                    <div class="item">
-                                                        <div class="ui blue horizontal label">AS Prefix</div>
-                                                        {{ ip_info["as_prefix"] }}
-                                                    </div>
-                                                    <div class="item">
-                                                        <div class="ui blue horizontal label">AS Holder</div>
-                                                        {{ ip_info["as_holder"] }}
-                                                    </div>
-                                                        <div class="item">
-                                                            <div class="ui teal horizontal label">Cloud Provider</div>
-                                                            {{ ip_info["cloud_provider"] }}
-                                                        </div>
-                                                        <div class="item">
-                                                            <div class="ui teal horizontal label">Cloud Provider Prefix
-                                                            </div>
-                                                            {{ ip_info["cloud_provider_prefix"] }}
-                                                        </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        {{ hostname_lookup_detail["cloud_provider_prefix"] }}
                                     </div>
                                 </div>
-                            {% endfor %}
                             </div>
-                        {% endif %}
+                        </div>
+                    </div>
+
                 </div>
-        {% endfor %}
+            {% endfor %}
         </div>
-    {% endif %}
+    {% endfor %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}

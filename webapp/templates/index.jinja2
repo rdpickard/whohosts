@@ -37,7 +37,7 @@
         <thead>
         <tr>
             <th><div class="ui  label teal">Cloud Provider</div></th>
-            <th><div class="ui  label teal">Cloud Provider Range</th>
+            <th><div class="ui  label teal">Cloud Provider Range</div></th>
             <th><div class="ui  label blue">AS Holder</div></th>
             <th><div class="ui  label blue">ASN</div></th>
             <th><div class="ui  label blue">AS Prefix</div></th>
@@ -47,25 +47,24 @@
         </tr>
         </thead>
         <tbody>
-        {% if hosting_table is defined %}
-            {% for hostname, host_details in hosting_table.items() %}
+        {% if lookup_results is defined %}
+            {% for lookup_target, hostname_lookup_details in lookup_results["data"].items() %}
                 <tr>
-                  <td colspan="8"><div class="ui basic green label large">{{ hostname }}</div></td>
+                  <td colspan="8"><div class="ui basic green label large">{{ lookup_target }}</div></td>
                 </tr>
-                {% if 'ip_info' in host_details and host_details['ip_info'] is not none %}
-                    {% for ip_info in host_details['ip_info'] %}
+                    {% for hostname_lookup_detail in hostname_lookup_details %}
                         <tr>
-                            <td style="color: teal"> {% if ip_info["cloud_provider"] is not none%}{{ ip_info["cloud_provider"] }} {% else %} {% endif %}</td>
-                            <td style="color: teal"> {% if ip_info["cloud_provider_prefix"] is not none%}{{ ip_info["cloud_provider_prefix"] }} {% else %} {% endif %} </td>
-                            <td style="color: blue"> {{ ip_info["as_holder"] }} </td>
-                            <td style="color: blue"> {{ ip_info["asn"] }} </td>
-                            <td style="color: blue"> {{ ip_info["as_prefix"] }} </td>
-                            <td style="color: red"> {{ ip_info["ip_address"] }} </td>
-                            <td style="color: purple"> {{ ip_info["dns_responder"] }} </td>
+                            <td style="color: teal"> {% if hostname_lookup_detail["cloud_provider"] is not none%}{{ hostname_lookup_detail["cloud_provider"] }} {% else %} {% endif %}</td>
+                            <td style="color: teal"> {% if hostname_lookup_detail["cloud_provider_prefix"] is not none%}{{ hostname_lookup_detail["cloud_provider_prefix"] }} {% else %} {% endif %} </td>
+                            <td style="color: blue"> {% if hostname_lookup_detail["as_holder"] is not none%} {{hostname_lookup_detail["as_holder"] }} {% else %} {% endif %}</td>
+                            <td style="color: blue"> {% if hostname_lookup_detail["asn"] is not none%} {{ hostname_lookup_detail["asn"] }} {% else %} {% endif %}</td>
+                            <td style="color: blue"> {% if hostname_lookup_detail["as_prefix"] is not none%} {{ hostname_lookup_detail["as_prefix"] }} {% else %} {% endif %}</td>
+                            <td style="color: red"> {% if hostname_lookup_detail["ip_address"] is not none%} {{ hostname_lookup_detail["ip_address"] }} {% else %} {{ hostname_lookup_detail["no_ip"] }} {% endif %}</td>
+                            <td style="color: purple"> {{ hostname_lookup_detail["dns_responder"] }} </td>
                             <td style="color: grey">
-                              {% if ip_info["dns_indirection"] is not none %}
+                              {% if hostname_lookup_detail["dns_indirection"] is not none  and hostname_lookup_detail["dns_indirection"]|length > 0%}
                                   <div class="ui mini steps vertical">
-                                  {% for dns_redirection in ip_info["dns_indirection"] %}
+                                  {% for dns_redirection in hostname_lookup_detail["dns_indirection"] %}
                                       <div class="step">
                                           <div class="content">
                                               <div class="title">{{ dns_redirection[0] }}</div>
@@ -75,12 +74,11 @@
                                   {% endfor %}
                                   </div>
                               {% else %}
-                                  {{ hostname }}
+                                  {{  hostname_lookup_detail["hostname"] }}
                               {% endif %}
                             </td>
                         </tr>
-                    {% endfor %}
-                {% endif %}
+                        {% endfor %}
             {% endfor %}
         {% else %}
             <tr>

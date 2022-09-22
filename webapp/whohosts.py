@@ -145,6 +145,8 @@ def load_cloud_provider_ip_space_from_file():
         cloud_provider_info["meta"] = dict()
         cloud_provider_info["meta"][
             "ui_description"] = f"Across {len(cloud_provider_info['prefix_networks'])} known ranges"
+        cloud_provider_info["meta"][
+            "date_acquired"] = f"Across {len(cloud_provider_info['prefix_networks'])} known ranges"
 
     app.config['cloud_providers_ip_space'] = cloud_providers_ip_space
     app.config['cloud_providers_ip_space_date'] = arrow.get(provider_ip_space_data["date"])
@@ -214,9 +216,250 @@ def default_page():
     else:
         return flask.render_template("index.jinja2", providers_table=app.config['gui_provider_table'])
 
-
 @app.route("/<lookup_target_list>")
 def lookup(lookup_target_list):
+
+    # Log the lookup request in a way that is easier to find among other messages
+    app.logger.info(f"Look up request for '{lookup_target_list}'")
+
+    refresh_cloud_provider_ip_space()
+
+    lookup_results = {
+        "date": str(arrow.utcnow()),
+        "data": {},
+        "error_messages": [],
+        "warning_messages": []
+    }
+
+    try:
+        # Figure out if the response should be just the JSON data or HTML
+        if flask.request.content_type is not None and flask.request.content_type.startswith('application/json'):
+            return_json = True
+            template = None
+        else:
+            return_json = False
+            # HTML will be returned so figure out if the mobile or desktop template should be used
+            if flask.request.MOBILE:
+                template = "index_mobile.jinja2"
+            else:
+                template = "index.jinja2"
+
+        # Split the targets to lookup
+        lookup_targets = lookup_target_list.split(",")
+
+        # make sure more than 5 targets haven't been requested
+        if len(lookup_targets) > 5:
+            # Don't process request, too many targets
+            lookup_results["error_messages"].append(f"Max 5 targets in request. {len(lookup_targets)} provided")
+
+        # make sure all the targets look like IP addresses or hostnames
+        for lookup_target in lookup_targets:
+            if not (re.match(ip_regex_complied, lookup_target) or re.match(hostname_regex_compiled, lookup_target)):
+                lookup_results["error_messages"].append(f"Can't parse target '{lookup_target}'. Must be a hostname, IPv4 or IPv6 address")
+
+        # Split the dns servers if specified
+        if "dns_servers" in request.args.keys():
+            dns_servers = request.args["dns_servers"].split(",")
+        else:
+            dns_servers = None
+
+        for dns_server in dns_servers or []:
+            if not re.match(ip_regex_complied, dns_server):
+                lookup_results["error_messages"].append(f"DNS Servers must be IP addresses. Values {dns_server} not usable")
+
+        # Do a query to each specified DNS server
+        dns_query_all_servers = False
+        if "dns_query_all_servers" in request.args.keys():
+            if request.args["dns_query_all_servers"].lower() == "true":
+                dns_query_all_servers = True
+
+        if dns_query_all_servers:
+            # make the list of dns servers in to an array of single element arrays
+            # ie ['1.1.1.1', '8.8.8.8', '1.1.1.3'] => [['1.1.1.1'], ['8.8.8.8'], ['1.1.1.3']]
+            dns_servers = [[dns_server] for dns_server in dns_servers]
+        else:
+            # make the list of dns servers in to a one element array of an array of all servers
+            # ie ['1.1.1.1', '8.8.8.8', '1.1.1.3'] => [['1.1.1.1', '8.8.8.8', '1.1.1.3']]
+            dns_servers = [dns_servers]
+
+
+        # Some pre-condition failed, return an error
+        if len(lookup_results["error_messages"]) > 0:
+            if return_json:
+                return jsonify(lookup_results), 406
+            else:
+                return flask.render_template(template,
+                                             lookup_results=lookup_results,
+                                             providers_table=app.config['gui_provider_table']), 406
+    except Exception as e:
+        return "Unrecoverable err in processing request error is {}".format(e), 500
+
+    lookup_result_template = {
+        "ip_address": None,
+        "dns_responder": None,
+        "asn": None,
+        "as_prefix": None,
+        "as_holder": None,
+        "cloud_provider": None,
+        "cloud_provider_prefix": None,
+        "dns_indirection": None,
+        "no_ip": None,
+    }
+
+    try:
+        for lookup_target in lookup_targets:
+
+            lookup_results["data"][lookup_target] = []
+
+            for dns_server in dns_servers:
+                try:
+                    # Look for DNS redirection
+                    hostname, dns_indirection = resolve_host_dns_indirection(lookup_target, dns_server)
+                except dns.resolver.NXDOMAIN as nxd:
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    app.logger.info("NXDomain {} found in DNS indirection".format(str(nxd.canonical_name)))
+                    lookup_result["no_ip"] = "(no such domain {})".format(str(nxd.canonical_name))
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+                except dns.resolver.LifetimeTimeout as lt:
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    app.logger.info("DNS server {} lookup for {} timed out".format(dns_server, str(lookup_target)))
+                    lookup_result["no_ip"] = "DNS request looking for indirection to DNS server timed out"
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+                except dns.resolver.NoNameservers as nns:
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    lookup_result["no_ip"] = "None of the configured name servers responded to DNS request looking for DNS indirection"
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+                except Exception as e:
+                    app.logger.error("Unhandled exception '{}' in lookup endpoint when looking for DNS indirection. Lookup endpoint URL path is '{}'".format(e, lookup_target_list))
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    lookup_result["no_ip"] = "Unexpected exception '{}' looking for DNS indirection".format(e)
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+
+                try:
+                    # Look up A and AAA records for the hostname
+                    hostname_a_aaaa_records = resolve_host_a_and_aaaa_records(hostname, dns_server)
+                except dns.resolver.NXDOMAIN as nxd:
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    lookup_result["no_ip"] = "NXDomain {}".format(str(nxd.canonical_name))
+                    lookup_result["dns_indirection"] = dns_indirection
+                    lookup_result["hostname"] = hostname
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+                except dns.resolver.LifetimeTimeout as lt:
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    lookup_result["no_ip"] = "DNS request DNS server timed out"
+                    lookup_result["dns_indirection"] = dns_indirection
+                    lookup_result["hostname"] = hostname
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+                except dns.resolver.NoNameservers as nns:
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    lookup_result[
+                        "no_ip"] = "None of the configured name servers responded to DNS request"
+                    lookup_result["dns_indirection"] = dns_indirection
+                    lookup_result["hostname"] = hostname
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+                except Exception as e:
+                    app.logger.error(
+                        "Unhandled exception '{}' in lookup endpoint when looking for A and AAA records. Lookup endpoint URL path is '{}'".format(
+                            e, lookup_target_list))
+                    app.logger.exception(e)
+                    lookup_result = lookup_result_template.copy()
+                    lookup_result["dns_responder"] = dns_server
+                    lookup_result["no_ip"] = "Unexpected exception '{}' looking for A and AAA records".format(e)
+                    lookup_result["dns_indirection"] = dns_indirection
+                    lookup_result["hostname"] = hostname
+                    lookup_results["data"][lookup_target].append(lookup_result.copy())
+                    continue
+
+                # Loop through all of the A and AAA records and see where they fit in cloud provider and BGP space
+                for hostname_a_aaaa_record in hostname_a_aaaa_records:
+
+                    ip_address = hostname_a_aaaa_record[0]
+                    responder_address = hostname_a_aaaa_record[1]
+
+                    ip_network = netaddr.IPAddress(ip_address)
+
+                    # IP addresses can be in more than one ASN, for example in the case of anycast'ing
+                    asn_prefix, asns_and_holders = asn_info_for_ip(ip_address)
+                    if asn_prefix is None or asns_and_holders is None:
+                        # Some DNS servers return weird addresses like 0.0.0.0 when censoring access to sites
+                        app.logger.info("IP address '{}' found for hostname '{}' of lookup target '{}' against dns servers '{}' is not in any ASN".format(
+                            ip_address, hostname, lookup_target, dns_server
+                        ))
+                        asn_prefix = None
+                        asns_and_holders = [(None, None)]
+
+                    # compare the hostname IP to the IP ranges of cloud providers
+                    cloud_providers = []
+                    for cloud_provider, provider_info in app.config['cloud_providers_ip_space']["providers"].items():
+                        provider_ipnetworks = provider_info["prefix_networks"]
+                        for provider_ipnetwork in provider_ipnetworks:
+                            if ip_network in provider_ipnetwork:
+                                cloud_providers.append((cloud_provider, str(provider_ipnetwork)))
+                    if len(cloud_providers) > 1:
+                        # In theory only one cloud provider should be hosting an IP address but DNS and routing are easy to mess up
+                        app.logger.info(
+                            "IP address '{}' found for hostname '{}' of lookup target '{}' against dns servers '{}' is in multiple cloud providers IP space '{}'".format(
+                                ip_address, hostname, lookup_target, dns_server, str(cloud_providers)
+                            ))
+                    if len(cloud_providers) == 0:
+                        cloud_providers = [(None,None)]
+
+                    # NOW create a lookup result for each IP record for the hostname and ASN and cloud providers that IP matches
+                    for asn_and_holder in asns_and_holders:
+                        asn = asn_and_holder[0]
+                        as_holder = asn_and_holder[1]
+                        for cloud_provider in cloud_providers:
+
+                            cloud_provider_name = cloud_provider[0]
+                            cloud_provider_prefix = cloud_provider[1]
+
+                            lookup_result = lookup_result_template.copy()
+
+                            lookup_result["ip_address"] = ip_address
+                            lookup_result["dns_responder"] = responder_address
+                            lookup_result["hostname"] = hostname
+
+                            lookup_result["asn"] = asn
+                            lookup_result["as_holder"] = as_holder
+                            lookup_result["as_prefix"] = asn_prefix
+
+                            lookup_result["cloud_provider_prefix"] = cloud_provider_prefix
+                            lookup_result["cloud_provider"] = cloud_provider_name
+
+                            lookup_result["dns_indirection"] = dns_indirection
+
+                            lookup_results["data"][lookup_target].append(lookup_result)
+
+    except Exception as ee:
+        app.logger.error("Unhandled exception '{}' doing hostname lookup for request '{}'".format(ee, lookup_targets))
+        logging.exception(ee)
+        return "Unrecoverable err in doing lookup error is {}".format(ee), 500
+
+
+    if return_json:
+        return jsonify(lookup_results), 406
+    else:
+        return flask.render_template(template,
+                                     lookup_results=lookup_results,
+                                     providers_table=app.config['gui_provider_table']), 406
+
+
+@app.route("/<lookup_target_list>")
+def lookup_orig(lookup_target_list):
 
     refresh_cloud_provider_ip_space()
 
@@ -372,6 +615,75 @@ def look_for_ip_in_provider_space(ip):
     return provider_tuples
 
 
+def resolve_host_dns_indirection(hostname, dns_server_ips, record_indirection=None):
+
+    if record_indirection is None:
+        record_indirection = list()
+
+    if dns_server_ips is None or len(dns_server_ips) == 0:
+        dns_resolver = dns.resolver.Resolver()
+    else:
+        dns_resolver = dns.resolver.Resolver(configure=False)
+        dns_resolver.nameservers = dns_server_ips
+
+    try:
+        cname_answers = dns_resolver.resolve(hostname, 'CNAME')
+
+        if len(cname_answers) == 1:
+            cnamed_host = str(cname_answers[0])
+            record_indirection.append((hostname, "CNAME", cnamed_host))
+            return resolve_host_dns_indirection(cnamed_host, dns_server_ips, record_indirection)
+        elif len(cname_answers) > 1:
+            err_message = "DNS lookup to DNS server {} for CNAME of hostname {} returned more than one CNAME records. This should not happen.".format(cname_answers.nameserver, hostname)
+            app.logger.warning(err_message)
+            raise WhoHostsException(err_message)
+        elif len(cname_answers) == 0:
+            warn_message = "DNS lookup to DNS server {} for CNAME of hostname {} returned zero CNAME records. Usually DNS python module raises NoAnswer exception in this case. Raising NoAnswer exception 'manually'".format(cname_answers.nameserver, hostname)
+            app.logger.warning(warn_message)
+            raise dns.resolver.NoAnswer()
+    except dns.resolver.NoAnswer as na:
+        # End of CNAMES
+        return hostname, record_indirection
+
+
+def resolve_host_a_and_aaaa_records(hostname, dns_server_ips):
+
+    app.logger.info("A AAAA lookup {} {}".format(hostname, dns_server_ips))
+    # Make the request to a specific DNS server or servers or use the configured host resolver
+    if dns_server_ips is None or len(dns_server_ips) == 0:
+        dns_resolver = dns.resolver.Resolver()
+    else:
+        dns_resolver = dns.resolver.Resolver(configure=False)
+        dns_resolver.nameservers = dns_server_ips
+
+    try:
+        all_records = []
+        try:
+            v4_answers = dns_resolver.resolve(hostname, 'A')
+            ip_v4_addresses = list(map(lambda v4_answer: str(v4_answer), v4_answers))
+            for ip_v4_address in ip_v4_addresses:
+                all_records.append((ip_v4_address, v4_answers.nameserver))
+        except dns.resolver.NoAnswer as na:
+            pass
+
+        try:
+            v6_answers = dns_resolver.resolve(hostname, 'AAAA')
+            ip_v6_addresses = list(map(lambda v6_answer: str(v6_answer), v6_answers))
+            for ip_v6_address in ip_v6_addresses:
+                all_records.append((ip_v6_address, v6_answers.nameserver))
+        except dns.resolver.NoAnswer as na:
+            pass
+
+    except dns.resolver.NXDOMAIN as nxd:
+        pass
+    except dns.resolver.LifetimeTimeout as lt:
+        pass
+    except dns.resolver.NoNameservers as nns:
+        pass
+
+    return  all_records
+
+
 def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True, resolve_dns_indirection=None):
     if dns_server_ips is None or len(dns_server_ips) == 0:
         dns_resolver = dns.resolver.Resolver()
@@ -428,7 +740,6 @@ def resolve_host_ip_addresses(hostname, dns_server_ips, follow_cname=True, resol
     except dns.resolver.NoNameservers as nns:
         logging.info(f"Connection refused to nameserver {nns}")
         return None, None
-
 
     return all_ips, resolve_dns_indirection
 
