@@ -1,0 +1,112 @@
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WhoHosts lookup results schema",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string"
+    },
+    "error_messages": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": "string"
+    },
+    "warning_messages": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": "string"
+    },
+    "data": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "ip_address": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "dns_responder": {
+              "type": [
+                "string"
+              ]
+            },
+            "asn": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "as_prefix": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "as_holder": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cloud_provider": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cloud_provider_prefix": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "dns_indirection": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "no_ip": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "ip_address",
+            "dns_responder",
+            "asn",
+            "as_prefix",
+            "as_holder",
+            "cloud_provider",
+            "cloud_provider_prefix",
+            "dns_indirection",
+            "no_ip"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "required": [
+    "date",
+    "error_messages",
+    "warning_messages",
+    "data"
+  ]
+}
