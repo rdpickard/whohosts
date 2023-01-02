@@ -6,6 +6,7 @@ import sys
 import urllib.parse
 import os
 import re
+import netaddr
 
 import requests
 import arrow
@@ -53,6 +54,38 @@ provider_space = dict()
 
 provider_space['date'] = str(arrow.now())
 provider_space["providers"] = dict()
+
+#LINODE
+logging.info("Getting Linode IP Space")
+linode_ip_url = "https://geoip.linode.com/"
+provider_space["providers"]["Linode"] = dict()
+provider_space["providers"]["Linode"]["from"] = linode_ip_url
+
+linode_ip_response = requests.get(linode_ip_url)
+if linode_ip_response.status_code != 200:
+    logging.error("Linode response did not return 200")
+else:
+    try:
+        prefixes = []
+        previous_line_good = False
+        for row in linode_ip_response.text.split("\n"):
+            if row.startswith("#"):
+                continue
+            columns = row.split(",")
+            if len(columns) != 6:
+                if not previous_line_good:
+                    raise Exception(f"Unexpected number of columns in row. Expected 6 got {len(columns)}")
+                else:
+                    previous_line_good = False
+                    continue
+            prefixes.append(str(netaddr.IPNetwork(columns[0])))
+            previous_line_good = True
+    except netaddr.core.AddrFormatError as afe:
+        logging.error(f"Couldn't parse Linode IP response from {linode_ip_url}. Response contained non-network address where network address was expected {afe}")
+    except Exception as e:
+        logging.error(f"Couldn't parse Linode IP response from {linode_ip_url}. Err is {e}")
+    else:
+        provider_space["providers"]["Linode"]["prefixes"] = prefixes
 
 #NAMECHEAP
 logging.info("Getting NameCheap prefixes")
