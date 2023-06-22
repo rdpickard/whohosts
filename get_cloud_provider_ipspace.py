@@ -34,7 +34,7 @@ class WhoHostsGetProviderIPSpaceException(Exception):
     pass
 
 
-logging.basicConfig(format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s", level=logging.DEBUG)
+logging.basicConfig(format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s", level=logging.INFO)
 
 
 s3fs_client=None
