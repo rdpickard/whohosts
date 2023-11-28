@@ -29,7 +29,7 @@ class AWSIPCrawler(ProviderIPCrawler):
         if aws_response.status_code != 200:
             raise IPSpaceCrawlException(f"AWS crawl failed. Request to URL '{aws_ip_url}' returned status code '{aws_response.status_code}', required status 200")
 
-        with open("../schemas/cloudprovider_aws_ip_space_schema.json") as f:
+        with open("schemas/cloudprovider_aws_ip_space_schema.json") as f:
             jsonschema.validate(aws_response.json(), json.load(f))
 
         for prefix in aws_response.json()['prefixes']:

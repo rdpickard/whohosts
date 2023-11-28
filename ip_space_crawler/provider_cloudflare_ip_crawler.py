@@ -28,7 +28,7 @@ class CloudFlareIPCrawler(ProviderIPCrawler):
         if cf_response.status_code != 200:
             raise IPSpaceCrawlException(f"CloudFlare crawl failed. Request to URL '{cf_ip_url}' returned status code '{cf_response.status_code}', required status 200")
 
-        with open("../schemas/cloudprovider_cloudflare_ip_space_schema.json") as f:
+        with open("schemas/cloudprovider_cloudflare_ip_space_schema.json") as f:
             jsonschema.validate(cf_response.json(), json.load(f))
 
         prefixes = cf_response.json()["result"]["ipv4_cidrs"] + cf_response.json()["result"]["ipv6_cidrs"]

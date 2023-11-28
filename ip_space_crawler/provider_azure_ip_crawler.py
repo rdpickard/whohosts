@@ -54,7 +54,7 @@ class AzureIPCrawler(ProviderIPCrawler):
 
         service_tag_json = service_tag_dl_response.json()
 
-        with open("../schemas/cloud_provider_azure_ip_space_schema.json") as f:
+        with open("schemas/cloud_provider_azure_ip_space_schema.json") as f:
             jsonschema.validate(service_tag_json, json.load(f))
 
         for azure_feature in service_tag_json["values"]:

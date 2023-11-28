@@ -28,7 +28,7 @@ class FastlyIPCrawler(ProviderIPCrawler):
         if fastly_ip_response.status_code != 200:
             raise IPSpaceCrawlException(f"Fastly crawl failed. Request to URL '{fastly_ip_url}' returned status code '{fastly_ip_response.status_code}', required status 200")
 
-        with open("../schemas/cloudprovider_fastly_ip_space_schema.json") as f:
+        with open("schemas/cloudprovider_fastly_ip_space_schema.json") as f:
             jsonschema.validate(fastly_ip_response.json(), json.load(f))
 
         prefixes = fastly_ip_response.json()["addresses"] + fastly_ip_response.json()["ipv6_addresses"]

@@ -62,7 +62,7 @@ def crawl_providers_ip_space(logger):
 
     # Validate the returned JSON is formatted correctly
     try:
-        with open("../schemas/whohosts_provider_ip_space_schema.json") as ip_space_schema_fp:
+        with open("schemas/whohosts_provider_ip_space_schema.json") as ip_space_schema_fp:
             jsonschema.validate(provider_space, json.load(ip_space_schema_fp))
     except jsonschema.exceptions.ValidationError as ve:
         logging.critical(f"Provider IP space JSON validation failed '{ve}'. Crawl results not saved. Exiting")

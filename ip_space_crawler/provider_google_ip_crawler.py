@@ -28,7 +28,7 @@ class GCCIPCrawler(ProviderIPCrawler):
         if g_response.status_code != 200:
             raise IPSpaceCrawlException(f"{self.provider_name} crawl failed. Request to URL '{google_ip_url}' returned status code '{g_response.status_code}', required status 200")
 
-        with open("../schemas/cloudprovider_google_ip_space_schema.json") as f:
+        with open("schemas/cloudprovider_google_ip_space_schema.json") as f:
             jsonschema.validate(g_response.json(), json.load(f))
 
         prefixes = [prefix for prefixes in list(map(lambda p: list(p.values()), g_response.json()['prefixes'])) for prefix in prefixes]
