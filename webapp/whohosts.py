@@ -198,7 +198,7 @@ def provider(provider_name):
     else:
         provider_data = dict()
         provider_data["name"] = provider_name
-        provider_data["ip_data_from"] = app.config['cloud_providers_ip_space']["providers"][provider_name]["from"]
+        provider_data["ip_data_from"] = app.config['cloud_providers_ip_space']["providers"][provider_name]["source"]
         provider_data["ip_data_gathered_date_utc"] = app.config['cloud_providers_ip_space']["date"]
         provider_data["ip_prefixes"] = list(
             map(lambda network: str(network),

@@ -12,7 +12,9 @@
             "additionalProperties": {
                 "type": "object",
                 "properties": {
-                    "from": {"type": "string"},
+                    "source": {"type": "string"},
+                    "date": {"type": "string"},
+                    "successful": {"type": "boolean"},
                     "prefixes": {
                         "type": "array",
                         "items": {
@@ -20,7 +22,7 @@
                         }
                     }
                 },
-                "required": ["from", "prefixes"],
+                "required": ["source", "prefixes", "date", "successful"],
                 "additionalProperties": false
             }
         }
